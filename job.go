@@ -4,16 +4,17 @@ import (
 	"os"
 )
 
-// TODO(dustin): !! Add documentation.
-
+// Job describes any job being queued in the channel.
 type Job interface {
 	ParentNodePath() string
 }
 
+// jobNode is the default promoted type of our file and directory jbos.
 type jobNode struct {
 	parentNodePath string
 }
 
+// ParentNodePath is the full-path of the parent node.
 func (jn jobNode) ParentNodePath() string {
 	return jn.parentNodePath
 }
@@ -34,6 +35,7 @@ func newJobFileNode(parentNodePath string, info os.FileInfo) jobFileNode {
 	}
 }
 
+// Info returns a `os.FileInfo`-compatible struct.
 func (jfn jobFileNode) Info() os.FileInfo {
 	return jfn.info
 }
@@ -54,10 +56,7 @@ func newJobDirectoryNode(parentNodePath string, info os.FileInfo) jobDirectoryNo
 	}
 }
 
-func (jdn jobDirectoryNode) IsRootPath() bool {
-	return jdn.jobNode.parentNodePath == ""
-}
-
+// Info returns a `os.FileInfo`-compatible struct.
 func (jdn jobDirectoryNode) Info() os.FileInfo {
 	return jdn.info
 }
@@ -74,10 +73,12 @@ func newJobDirectoryContentsBatch(parentPath string, childBatch []string) jobDir
 	}
 }
 
+// ParentNodePath is the full-path of the parent node.
 func (jdcb jobDirectoryContentsBatch) ParentNodePath() string {
 	return jdcb.parentPath
 }
 
+// ChildBatch is a string-slice of the entries in this batch.
 func (jdcb jobDirectoryContentsBatch) ChildBatch() []string {
 	return jdcb.childBatch
 }

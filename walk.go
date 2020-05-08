@@ -32,11 +32,10 @@ const (
 	directoryEntryBatchSize = 100
 )
 
-// TODO(dustin): Make sure to handle symlinks (including directories that need to be descended).
-// TODO(dustin): !! Finish adding documentation.
-
+// WalkFunc is the function type for the callback.
 type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 
+// Walk knows how to traverse a tree in parallel.
 type Walk struct {
 	rootPath        string
 	concurrency     int
@@ -48,6 +47,7 @@ type Walk struct {
 	stateLocker     sync.Mutex
 }
 
+// NewWalk returns a new Walk struct.
 func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 	return &Walk{
 		rootPath:    rootPath,
@@ -56,10 +56,13 @@ func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 	}
 }
 
-func (walk *Walk) SetConcurrency() {
-	walk.concurrency = defaultConcurrency
+// SetConcurrency sets a non-default concurrency level for the workers.
+func (walk *Walk) SetConcurrency(concurrency int) {
+	walk.concurrency = concurrency
 }
 
+// initSync sets-up the synchronization state. This is isolated as a separate
+// step to support testing.
 func (walk *Walk) initSync() {
 	// Our job pipeline.
 	walk.jobsC = make(chan Job, walk.concurrency)
@@ -68,6 +71,7 @@ func (walk *Walk) initSync() {
 	walk.wg = new(sync.WaitGroup)
 }
 
+// Run forks workers to process the tree. All workers will have quit by the time we return.
 func (walk *Walk) Run() (err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -203,6 +207,7 @@ func (walk *Walk) nodeWorker() {
 	// Execution will reach here before hitting the defer and cleaning up.
 }
 
+// handleJob handles one queued job.
 func (walk *Walk) handleJob(job Job) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -269,6 +274,8 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 	return nil
 }
 
+// handleJobDirectoryNode handles one directory note. It will read and parcel
+// child files and directories.
 func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
@@ -314,6 +321,7 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 	return nil
 }
 
+// handleJobFileNode handles one file node. This is a leaf operation.
 func (walk *Walk) handleJobFileNode(jfn jobFileNode) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
