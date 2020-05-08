@@ -12,15 +12,10 @@ type Job interface {
 
 type jobNode struct {
 	parentNodePath string
-	nodeName       string
 }
 
-func (jfl JobFileLeaf) ParentNodePath() string {
-	return jfl.parentNodePath
-}
-
-func (jfl JobFileLeaf) NodeName() string {
-	return jfl.nodeName
+func (jn jobNode) ParentNodePath() string {
+	return jn.parentNodePath
 }
 
 type jobFileNode struct {
@@ -28,14 +23,13 @@ type jobFileNode struct {
 	info os.FileInfo
 }
 
-func newJobFileNode(parentNodePath, nodeName string, info os.FileInfo) jobFileNode {
+func newJobFileNode(parentNodePath string, info os.FileInfo) jobFileNode {
 	jn := jobNode{
 		parentNodePath: parentNodePath,
-		nodeName:       nodeName,
 	}
 
 	return jobFileNode{
-		jobNode: jobNode,
+		jobNode: jn,
 		info:    info,
 	}
 }
@@ -46,16 +40,16 @@ func (jfn jobFileNode) Info() os.FileInfo {
 
 type jobDirectoryNode struct {
 	jobNode
+	info os.FileInfo
 }
 
-func newJobDirectoryNode(parentNodePath, nodeName string, info os.FileInfo) jobDirectoryNode {
+func newJobDirectoryNode(parentNodePath string, info os.FileInfo) jobDirectoryNode {
 	jn := jobNode{
 		parentNodePath: parentNodePath,
-		nodeName:       nodeName,
 	}
 
 	return jobDirectoryNode{
-		jobNode: jobNode,
+		jobNode: jn,
 		info:    info,
 	}
 }

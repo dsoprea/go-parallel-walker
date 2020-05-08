@@ -1,14 +1,12 @@
 package pathwalk
 
 import (
-	"fmt"
+	"io"
 	"os"
 	"path"
 	"reflect"
 	"sync"
 	"time"
-
-	"path/filepath"
 
 	"github.com/dsoprea/go-logging"
 )
@@ -37,7 +35,7 @@ const (
 // TODO(dustin): Make sure to handle symlinks (including directories that need to be descended).
 // TODO(dustin): !! Finish adding documentation.
 
-type WalkFunc func(parentPath, name string) (err error)
+type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 
 type Walk struct {
 	rootPath        string
@@ -46,11 +44,11 @@ type Walk struct {
 	wg              *sync.WaitGroup
 	workerCount     int
 	idleWorkerCount int
-
-	walkFunc WalkFunc
+	walkFunc        WalkFunc
+	stateLocker     sync.Mutex
 }
 
-func NewWalk(rootPath string, walkFunc filepath.WalkFunc) *Walk {
+func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 	return &Walk{
 		rootPath:    rootPath,
 		concurrency: defaultConcurrency,
@@ -62,35 +60,40 @@ func (walk *Walk) SetConcurrency() {
 	walk.concurrency = defaultConcurrency
 }
 
-func (walk *Walk) Run(walkFn os.WalkFunc) (err error) {
+func (walk *Walk) initSync() {
+	// Our job pipeline.
+	walk.jobsC = make(chan Job, walk.concurrency)
+
+	// Allows us to wait until jobs have completed before we exit.
+	walk.wg = new(sync.WaitGroup)
+}
+
+func (walk *Walk) Run() (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
 		}
 	}()
 
-	if walk.jobsC != nil {
-		log.Panicf("Walk struct can not be reused; please recreate")
-	}
-
-	// Our job pipeline.
-	walk.jobsC = make(chan Job, walk.concurrency)
-
-	// Allows us to wait until jobs have completed before we exit.
-	walk.wg = new(sync.WaitGroup)
+	walk.initSync()
 
 	defer func() {
-		fmt.Printf("Signaling workers to close.\n")
 		close(walk.jobsC)
-
-		fmt.Printf("Waiting on workers to finish.\n")
 		walk.wg.Wait()
 	}()
 
-	initialJob := newJobDirectoryNode("", walk.rootPath)
-
-	err := walk.pushJob(initialJob)
+	info, err := os.Stat(walk.rootPath)
 	log.PanicIf(err)
+
+	parentPath := path.Dir(walk.rootPath)
+	initialJob := newJobDirectoryNode(parentPath, info)
+
+	err = walk.pushJob(initialJob)
+	log.PanicIf(err)
+
+	// TODO(dustin): !! Wait for all of the workers to terminate. We can eliminate the wait by keep folder and file counters and then closing the channel at the bottom of the file handler if both are zero.
+	walk.wg.Wait()
+	close(walk.jobsC)
 
 	return nil
 }
@@ -106,10 +109,18 @@ func (walk *Walk) pushJob(job Job) (err error) {
 		}
 	}()
 
+	walk.stateLocker.Lock()
+	canStart := walk.idleWorkerCount <= 0 && walk.workerCount < walk.concurrency
+	walk.stateLocker.Unlock()
+
 	// All workers are occupied but we can start another one.
-	if walk.idleWorkerCount <= 0 && walk.workerCount < walk.concurrency {
+	if canStart {
+		walk.stateLocker.Lock()
+
 		walk.workerCount++
 		walk.wg.Add(1)
+
+		walk.stateLocker.Unlock()
 
 		go walk.nodeWorker()
 	}
@@ -130,6 +141,8 @@ func (walk *Walk) nodeWorker() {
 	defer func() {
 		tick.Stop()
 
+		walk.stateLocker.Lock()
+
 		// If the idle-worker-count was decremented but something prevented us
 		// from incrementing it again. There could've been an error. This makes
 		// sure that the arithmetic isn't off.
@@ -140,39 +153,49 @@ func (walk *Walk) nodeWorker() {
 		walk.workerCount--
 		walk.idleWorkerCount--
 
+		walk.stateLocker.Unlock()
+
 		walk.wg.Done()
 	}()
 
 	// TODO(dustin): Still needs a way to report errors.
 
-	lastActivityTime := time.Time()
+	lastActivityTime := time.Now()
 
+	walk.stateLocker.Lock()
 	walk.idleWorkerCount++
+	walk.stateLocker.Unlock()
 
 	for {
 		select {
 		case job, ok := <-walk.jobsC:
 			if ok == false {
 				// Channel is closed. The application must be closing. Shutdown.
-				break
+				// TODO(dustin): !! Debugging.
+				return
 			}
 
+			walk.stateLocker.Lock()
 			walk.idleWorkerCount--
+			walk.stateLocker.Unlock()
 
 			// This helps us manage our state if there's a panic.
 			isWorking = true
 
 			lastActivityTime = time.Now()
 
-			err := walk.handleJob()
+			err := walk.handleJob(job)
 			log.PanicIf(err)
 
 			isWorking = false
+
+			walk.stateLocker.Lock()
 			walk.idleWorkerCount++
+			walk.stateLocker.Unlock()
 		case <-tick.C:
 			if isWorking == false && time.Since(lastActivityTime) > maxWorkerIdleDuration {
 				// We haven't had anything to do for a while. Shutdown.
-				break
+				return
 			}
 		}
 	}
@@ -188,8 +211,8 @@ func (walk *Walk) handleJob(job Job) (err error) {
 	}()
 
 	switch t := job.(type) {
-	case handleJobDirectoryContentsBatch:
-		err := walk.(t)
+	case jobDirectoryContentsBatch:
+		err := walk.handleJobDirectoryContentsBatch(t)
 		log.PanicIf(err)
 	case jobDirectoryNode:
 		err := walk.handleJobDirectoryNode(t)
@@ -228,7 +251,7 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 
 			// TODO(dustin): Apply directory filters.
 
-			jdn := newJobDirectoryNode(parentNodePath, childFilename, info)
+			jdn := newJobDirectoryNode(parentNodePath, info)
 
 			err := walk.pushJob(jdn)
 			log.PanicIf(err)
@@ -236,7 +259,7 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 
 			// TODO(dustin): Apply file filters.
 
-			jfn := newJobFileNode(parentNodePath, childFilename, info)
+			jfn := newJobFileNode(parentNodePath, info)
 
 			err := walk.pushJob(jfn)
 			log.PanicIf(err)
@@ -253,19 +276,19 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 		}
 	}()
 
-	parentNodePath := jdn.ParentNodePath()
-	nodeName := jdn.NodeName()
-
 	// TODO(dustin): This should be able to return a specific error to skip child processing.
+
+	parentNodePath := jdn.ParentNodePath()
+	info := jdn.Info()
 
 	// We don't concern ourselves with symlinked directories. If they don't want
 	// to descend into them, they can detect them and skip.
-	err = walk.walkFunc(parentNodePath, nodeName)
+	err = walk.walkFunc(parentNodePath, info)
 	log.PanicIf(err)
 
 	// Now, push jobs for directory children.
 
-	path := path.Join(parentNodePath, nodeName)
+	path := path.Join(parentNodePath, info.Name())
 
 	f, err := os.Open(path)
 	log.PanicIf(err)
@@ -279,7 +302,7 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 				break
 			}
 
-			log.panic(err)
+			log.Panic(err)
 		}
 
 		jdcb := newJobDirectoryContentsBatch(path, names)
@@ -291,17 +314,17 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 	return nil
 }
 
-func (walk *Walk) handleJobFileNode(jdn jobFileNode) (err error) {
+func (walk *Walk) handleJobFileNode(jfn jobFileNode) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
 		}
 	}()
 
-	parentNodePath := jdn.ParentNodePath()
-	nodeName := jdn.NodeName()
+	parentNodePath := jfn.ParentNodePath()
+	info := jfn.Info()
 
-	err = walk.walkFunc(parentNodePath, nodeName)
+	err = walk.walkFunc(parentNodePath, info)
 	log.PanicIf(err)
 
 	return nil
