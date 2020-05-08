@@ -112,10 +112,10 @@ func TestWalk_nodeWorker__processOneJob(t *testing.T) {
 
 	jobsC := make(chan Job, 1)
 
-	var handledFile string
+	var handledFilename string
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile = info.Name()
+		handledFilename = info.Name()
 
 		// Stop the test ASAP.
 		close(jobsC)
@@ -162,7 +162,7 @@ func TestWalk_nodeWorker__processOneJob(t *testing.T) {
 
 	m.Unlock()
 
-	if handledFile != "test.file" {
+	if handledFilename != "test.file" {
 		t.Fatalf("Job was not processed.")
 	}
 }
@@ -176,11 +176,11 @@ func TestWalk_nodeWorker__processMultipleJob(t *testing.T) {
 
 	jobsC := make(chan Job, 1)
 
-	handledFiles := make([]string, 0)
+	handledFilenames := make([]string, 0)
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile := info.Name()
-		handledFiles = append(handledFiles, handledFile)
+		handledFilename := info.Name()
+		handledFilenames = append(handledFilenames, handledFilename)
 
 		return nil
 	}
@@ -243,18 +243,18 @@ func TestWalk_nodeWorker__processMultipleJob(t *testing.T) {
 		"test-5.file",
 	}
 
-	if reflect.DeepEqual(handledFiles, expectedFiles) != true {
-		t.Fatalf("Jobs were not processed correctly: %v", handledFiles)
+	if reflect.DeepEqual(handledFilenames, expectedFiles) != true {
+		t.Fatalf("Jobs were not processed correctly: %v", handledFilenames)
 	}
 }
 
 func TestWalk_nodeWorker__pushJob__closeImmediately(t *testing.T) {
-	var handledFile string
+	var handledFilename string
 
 	var walk *Walk
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile = info.Name()
+		handledFilename = info.Name()
 
 		// Stop the test ASAP.
 		close(walk.jobsC)
@@ -271,18 +271,18 @@ func TestWalk_nodeWorker__pushJob__closeImmediately(t *testing.T) {
 	walk.pushJob(jfn)
 	walk.wg.Wait()
 
-	if handledFile != "test.file" {
+	if handledFilename != "test.file" {
 		t.Fatalf("Job was not processed.")
 	}
 }
 
 func TestWalk_nodeWorker__pushJob__closeWhenIdle(t *testing.T) {
-	var handledFile string
+	var handledFilename string
 
 	var walk *Walk
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile = info.Name()
+		handledFilename = info.Name()
 		return nil
 	}
 
@@ -296,7 +296,7 @@ func TestWalk_nodeWorker__pushJob__closeWhenIdle(t *testing.T) {
 	walk.wg.Wait()
 	close(walk.jobsC)
 
-	if handledFile != "test.file" {
+	if handledFilename != "test.file" {
 		t.Fatalf("Job was not processed.")
 	}
 }
@@ -319,14 +319,14 @@ func TestWalk_handleJobDirectoryNode(t *testing.T) {
 	m := sync.Mutex{}
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile := info.Name()
+		handledFilename := info.Name()
 
 		m.Lock()
 		defer m.Unlock()
 
-		j := tempFilenames.Search(handledFile)
-		if j >= len(tempFilenames) || tempFilenames[j] != handledFile {
-			t.Fatalf("Handled file was not in the temporary-files list: [%s]", handledFile)
+		j := tempFilenames.Search(handledFilename)
+		if j >= len(tempFilenames) || tempFilenames[j] != handledFilename {
+			t.Fatalf("Handled file was not in the temporary-files list: [%s]", handledFilename)
 		}
 
 		tempFilenames = append(tempFilenames[:j], tempFilenames[j+1:]...)
@@ -380,14 +380,14 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	m := sync.Mutex{}
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile := info.Name()
+		handledFilename := info.Name()
 
 		m.Lock()
 		defer m.Unlock()
 
-		j := tempFilenames.Search(handledFile)
-		if j >= len(tempFilenames) || tempFilenames[j] != handledFile {
-			t.Fatalf("Handled file was not in the temporary-files list: [%s]", handledFile)
+		j := tempFilenames.Search(handledFilename)
+		if j >= len(tempFilenames) || tempFilenames[j] != handledFilename {
+			t.Fatalf("Handled file was not in the temporary-files list: [%s]", handledFilename)
 		}
 
 		tempFilenames = append(tempFilenames[:j], tempFilenames[j+1:]...)
@@ -426,7 +426,7 @@ func TestWalk_Run__simple(t *testing.T) {
 	tempPath, err := ioutil.TempDir("", "")
 	log.PanicIf(err)
 
-	fileCount := 20
+	fileCount := 200
 	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
 
 	tempFilenames = append(tempFilenames, path.Base(tempPath))
@@ -441,14 +441,14 @@ func TestWalk_Run__simple(t *testing.T) {
 	m := sync.Mutex{}
 
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
-		handledFile := info.Name()
+		handledFilename := info.Name()
 
 		m.Lock()
 		defer m.Unlock()
 
-		j := tempFilenames.Search(handledFile)
-		if j >= len(tempFilenames) || tempFilenames[j] != handledFile {
-			t.Fatalf("Handled file was not in the temporary-files list: [%s]", handledFile)
+		j := tempFilenames.Search(handledFilename)
+		if j >= len(tempFilenames) || tempFilenames[j] != handledFilename {
+			t.Fatalf("Handled file was not in the temporary-files list: [%s]", handledFilename)
 			return nil
 		}
 
@@ -458,9 +458,43 @@ func TestWalk_Run__simple(t *testing.T) {
 	}
 
 	walk := NewWalk(tempPath, walkFunc)
+
 	err = walk.Run()
+	log.PanicIf(err)
 
 	if len(tempFilenames) != 0 {
 		t.Fatalf("Not all files were handled: %v", tempFilenames)
 	}
+}
+
+func ExampleWalk_Run() {
+	// Stage test directory.
+
+	tempPath, err := ioutil.TempDir("", "")
+	log.PanicIf(err)
+
+	fileCount := 20
+	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
+
+	tempFilenames = append(tempFilenames, path.Base(tempPath))
+	tempFilenames.Sort()
+
+	// Walk
+
+	defer func() {
+		os.RemoveAll(tempPath)
+	}()
+
+	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
+		// Do your business.
+
+		return nil
+	}
+
+	walk := NewWalk(tempPath, walkFunc)
+
+	err = walk.Run()
+	log.PanicIf(err)
+
+	// Output:
 }

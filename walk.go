@@ -82,8 +82,11 @@ func (walk *Walk) Run() (err error) {
 	walk.initSync()
 
 	defer func() {
-		close(walk.jobsC)
+		// Wait/cleanup workers.
+
+		// TODO(dustin): !! Wait for all of the workers to terminate. We can eliminate the wait by keep folder and file counters and then closing the channel at the bottom of the file handler if both are zero.
 		walk.wg.Wait()
+		close(walk.jobsC)
 	}()
 
 	info, err := os.Stat(walk.rootPath)
@@ -94,10 +97,6 @@ func (walk *Walk) Run() (err error) {
 
 	err = walk.pushJob(initialJob)
 	log.PanicIf(err)
-
-	// TODO(dustin): !! Wait for all of the workers to terminate. We can eliminate the wait by keep folder and file counters and then closing the channel at the bottom of the file handler if both are zero.
-	walk.wg.Wait()
-	close(walk.jobsC)
 
 	return nil
 }
