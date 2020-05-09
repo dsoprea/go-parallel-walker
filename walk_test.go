@@ -516,3 +516,71 @@ func TestWalk_SetBufferSize(t *testing.T) {
 		t.Fatalf("'bufferSize' field not correct: (%d)", walk.bufferSize)
 	}
 }
+
+func TestNewWalk(t *testing.T) {
+	flag := false
+	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
+		flag = true
+
+		return nil
+	}
+
+	w := NewWalk("root/path", walkFunc)
+	if w.rootPath != "root/path" {
+		t.Fatalf("rootPath not correct: [%s]", w.rootPath)
+	} else if w.concurrency != defaultConcurrency {
+		t.Fatalf("'concurrency' field not correct: (%d)", w.concurrency)
+	} else if w.bufferSize != defaultBufferSize {
+		t.Fatalf("'bufferSize' field not correct: (%d)", w.bufferSize)
+	}
+
+	w.walkFunc("", nil)
+	if flag != true {
+		t.Fatalf("walkFunc not correct.")
+	}
+}
+
+func TestWalk_initSync(t *testing.T) {
+	walk := new(Walk)
+	walk.initSync()
+
+	if walk.jobsC == nil {
+		t.Fatalf("`jobsC` field not correct.")
+	}
+
+	close(walk.jobsC)
+
+	if walk.wg == nil {
+		t.Fatalf("`wg` field not correct.")
+	}
+}
+
+func TestWalk_handleJobFileNode(t *testing.T) {
+	sfi := rifs.NewSimpleFileInfoWithDirectory("file/name", time.Time{})
+
+	hit := false
+	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
+		if parentPath != "parent/path" {
+			t.Fatalf("parentPath not correct: [%s]", parentPath)
+		}
+
+		if info.(*rifs.SimpleFileInfo) != sfi {
+			t.Fatalf("FileInfo value not correct: [%s]", info.Name())
+		}
+
+		hit = true
+
+		return nil
+	}
+
+	jfn := newJobFileNode("parent/path", sfi)
+
+	walk := NewWalk("root/path", walkFunc)
+
+	err := walk.handleJobFileNode(jfn)
+	log.PanicIf(err)
+
+	if hit != true {
+		t.Fatalf("Callback not called.")
+	}
+}
