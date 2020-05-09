@@ -498,3 +498,21 @@ func ExampleWalk_Run() {
 
 	// Output:
 }
+
+func TestWalk_SetConcurrency(t *testing.T) {
+	walk := new(Walk)
+	walk.SetConcurrency(99)
+
+	if walk.concurrency != 99 {
+		t.Fatalf("'concurrency' field not correct: (%d)", walk.concurrency)
+	}
+}
+
+func TestWalk_SetBufferSize(t *testing.T) {
+	walk := new(Walk)
+	walk.SetBufferSize(99)
+
+	if walk.bufferSize != 99 {
+		t.Fatalf("'bufferSize' field not correct: (%d)", walk.bufferSize)
+	}
+}

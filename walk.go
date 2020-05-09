@@ -19,6 +19,9 @@ const (
 	// goroutine calls one callback).
 	defaultConcurrency = 200
 
+	// defaultBufferSize is the default size of the job channel.
+	defaultBufferSize = 1000
+
 	// maxWorkerIdleDuration is how long a work waits while idle for new jobs
 	// before it shuts down.
 	maxWorkerIdleDuration = time.Second * 2
@@ -37,14 +40,18 @@ type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 
 // Walk knows how to traverse a tree in parallel.
 type Walk struct {
-	rootPath        string
-	concurrency     int
-	jobsC           chan Job
-	wg              *sync.WaitGroup
+	rootPath    string
+	concurrency int
+	bufferSize  int
+
+	jobsC chan Job
+	wg    *sync.WaitGroup
+
 	workerCount     int
 	idleWorkerCount int
-	walkFunc        WalkFunc
 	stateLocker     sync.Mutex
+
+	walkFunc WalkFunc
 }
 
 // NewWalk returns a new Walk struct.
@@ -52,13 +59,19 @@ func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 	return &Walk{
 		rootPath:    rootPath,
 		concurrency: defaultConcurrency,
+		bufferSize:  defaultBufferSize,
 		walkFunc:    walkFunc,
 	}
 }
 
-// SetConcurrency sets a non-default concurrency level for the workers.
+// SetConcurrency sets an alternative maximum number of workers.
 func (walk *Walk) SetConcurrency(concurrency int) {
 	walk.concurrency = concurrency
+}
+
+// SetBufferSize sets an alternative size for the job channel.
+func (walk *Walk) SetBufferSize(bufferSize int) {
+	walk.bufferSize = bufferSize
 }
 
 // initSync sets-up the synchronization state. This is isolated as a separate
