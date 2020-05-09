@@ -1,12 +1,14 @@
 package pathwalk
 
 import (
+	"fmt"
 	"os"
 )
 
 // Job describes any job being queued in the channel.
 type Job interface {
 	ParentNodePath() string
+	String() string
 }
 
 // jobNode is the default promoted type of our file and directory jbos.
@@ -40,6 +42,11 @@ func (jfn jobFileNode) Info() os.FileInfo {
 	return jfn.info
 }
 
+// String returns a descriptive string.
+func (jfn jobFileNode) String() string {
+	return fmt.Sprintf("JobFileNode<PARENT=[%s] NAME=[%s]>", jfn.jobNode.parentNodePath, jfn.info.Name())
+}
+
 type jobDirectoryNode struct {
 	jobNode
 	info os.FileInfo
@@ -61,15 +68,22 @@ func (jdn jobDirectoryNode) Info() os.FileInfo {
 	return jdn.info
 }
 
-type jobDirectoryContentsBatch struct {
-	parentPath string
-	childBatch []string
+// String returns a descriptive string.
+func (jdn jobDirectoryNode) String() string {
+	return fmt.Sprintf("JobDirectoryNode<PARENT=[%s] NAME=[%s]>", jdn.jobNode.parentNodePath, jdn.info.Name())
 }
 
-func newJobDirectoryContentsBatch(parentPath string, childBatch []string) jobDirectoryContentsBatch {
+type jobDirectoryContentsBatch struct {
+	parentPath  string
+	batchNumber int
+	childBatch  []string
+}
+
+func newJobDirectoryContentsBatch(parentPath string, batchNumber int, childBatch []string) jobDirectoryContentsBatch {
 	return jobDirectoryContentsBatch{
-		parentPath: parentPath,
-		childBatch: childBatch,
+		parentPath:  parentPath,
+		batchNumber: batchNumber,
+		childBatch:  childBatch,
 	}
 }
 
@@ -81,4 +95,11 @@ func (jdcb jobDirectoryContentsBatch) ParentNodePath() string {
 // ChildBatch is a string-slice of the entries in this batch.
 func (jdcb jobDirectoryContentsBatch) ChildBatch() []string {
 	return jdcb.childBatch
+}
+
+// String returns a descriptive string.
+func (jdcb jobDirectoryContentsBatch) String() string {
+	return fmt.Sprintf(
+		"JobDirectoryContentsBatch<PARENT=[%s] BATCH=(%d) CHILD-COUNT=(%d)>",
+		jdcb.parentPath, jdcb.batchNumber, len(jdcb.childBatch))
 }

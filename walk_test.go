@@ -130,6 +130,10 @@ func TestWalk_nodeWorker__processOneJob(t *testing.T) {
 		walkFunc:    walkFunc,
 	}
 
+	// We'll have exactly one job in-flight, but we also want another one to
+	// prevent the one job from inducing the worker to be closed.
+	walk.jobsInFlight = 2
+
 	finished := false
 
 	// Synchronize to make the race-detector happy.
@@ -192,6 +196,10 @@ func TestWalk_nodeWorker__processMultipleJob(t *testing.T) {
 		walkFunc:    walkFunc,
 	}
 
+	// Give it the right count of jobs so that the last one will automatically
+	// close the channel.
+	walk.jobsInFlight = 6
+
 	finished := false
 
 	// Synchronize to make the race-detector happy.
@@ -215,9 +223,6 @@ func TestWalk_nodeWorker__processMultipleJob(t *testing.T) {
 		jobsC <- newJobFileNode("", oneTestFileInfo)
 		time.Sleep(time.Second * 1)
 	}
-
-	// Stop the test ASAP.
-	close(jobsC)
 
 	wg.Wait()
 
@@ -263,7 +268,12 @@ func TestWalk_nodeWorker__pushJob__closeImmediately(t *testing.T) {
 	}
 
 	walk = NewWalk("", walkFunc)
+
 	walk.initSync()
+
+	// Keep the coutner one higher than the actual count so that the last job
+	// won't induce the worker to be closed.
+	walk.jobsInFlight = 1
 
 	testFileInfo := rifs.NewSimpleFileInfoWithFile("test.file", 0, 0, time.Time{})
 	jfn := newJobFileNode("", testFileInfo)
@@ -287,7 +297,13 @@ func TestWalk_nodeWorker__pushJob__closeWhenIdle(t *testing.T) {
 	}
 
 	walk = NewWalk("", walkFunc)
+
 	walk.initSync()
+
+	// We'll state that there's one more job than there actually is so that the
+	// job-count won't drop all of the way to zero and the channel won't be
+	// automatically closed.
+	walk.jobsInFlight++
 
 	testFileInfo := rifs.NewSimpleFileInfoWithFile("test.file", 0, 0, time.Time{})
 	jfn := newJobFileNode("", testFileInfo)
@@ -346,9 +362,7 @@ func TestWalk_handleJobDirectoryNode(t *testing.T) {
 	err := walk.handleJobDirectoryNode(jdn)
 	log.PanicIf(err)
 
-	// The workers will starve and shutdown almost immediately.
 	walk.wg.Wait()
-	close(walk.jobsC)
 
 	if len(tempFilenames) != 0 {
 		fmt.Printf("One or more files were not handled:\n")
@@ -398,6 +412,8 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	walk := NewWalk("", walkFunc)
 	walk.initSync()
 
+	walk.jobsInFlight = 5
+
 	// Handle the root directory node.
 
 	// We copy the slice going in as the argument to prevent races with the
@@ -405,15 +421,13 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	childBatch := make([]string, len(tempFilenames))
 	copy(childBatch, tempFilenames)
 
-	jdcb := newJobDirectoryContentsBatch(tempPath, childBatch)
+	jdcb := newJobDirectoryContentsBatch(tempPath, 0, childBatch)
 
 	// This will fork workers to process the children in batches.
 	err = walk.handleJobDirectoryContentsBatch(jdcb)
 	log.PanicIf(err)
 
-	// The workers will starve and shutdown almost immediately.
 	walk.wg.Wait()
-	close(walk.jobsC)
 
 	if len(tempFilenames) != 0 {
 		t.Fatalf("Not all files were handled: %v", tempFilenames)

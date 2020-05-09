@@ -52,6 +52,9 @@ type Walk struct {
 	stateLocker     sync.Mutex
 
 	walkFunc WalkFunc
+
+	jobsInFlight  int
+	counterLocker sync.Mutex
 }
 
 // NewWalk returns a new Walk struct.
@@ -82,6 +85,9 @@ func (walk *Walk) initSync() {
 
 	// Allows us to wait until jobs have completed before we exit.
 	walk.wg = new(sync.WaitGroup)
+
+	// To facilitate reuse of the struct for follow-up operations.
+	walk.jobsInFlight = 0
 }
 
 // Run forks workers to process the tree. All workers will have quit by the time we return.
@@ -99,7 +105,9 @@ func (walk *Walk) Run() (err error) {
 
 		// TODO(dustin): !! Wait for all of the workers to terminate. We can eliminate the wait by keep folder and file counters and then closing the channel at the bottom of the file handler if both are zero.
 		walk.wg.Wait()
-		close(walk.jobsC)
+
+		// TODO(dustin): !! The channel will already close automatically after the last entry.
+		//close(walk.jobsC)
 	}()
 
 	info, err := os.Stat(walk.rootPath)
@@ -141,6 +149,8 @@ func (walk *Walk) pushJob(job Job) (err error) {
 		go walk.nodeWorker()
 	}
 
+	walk.jobTickUp()
+
 	// Here, a job gets pushed whether any workers are idle or not.
 	walk.jobsC <- job
 
@@ -151,6 +161,13 @@ func (walk *Walk) pushJob(job Job) (err error) {
 // declare when it's idle (waiting for a job), and it'll eventually shutdown if
 // it doesn't get any jobs.
 func (walk *Walk) nodeWorker() {
+	defer func() {
+		if state := recover(); state != nil {
+			err := log.Wrap(state.(error))
+			log.PrintErrorf(err, "Node worker panicked.")
+		}
+	}()
+
 	isWorking := false
 	tick := time.NewTicker(workerIdleCheckInterval)
 
@@ -229,19 +246,48 @@ func (walk *Walk) handleJob(job Job) (err error) {
 
 	switch t := job.(type) {
 	case jobDirectoryContentsBatch:
+
 		err := walk.handleJobDirectoryContentsBatch(t)
 		log.PanicIf(err)
+
 	case jobDirectoryNode:
 		err := walk.handleJobDirectoryNode(t)
 		log.PanicIf(err)
+
 	case jobFileNode:
 		err := walk.handleJobFileNode(t)
 		log.PanicIf(err)
+
 	default:
 		log.Panicf("job not valid: [%v]", reflect.TypeOf(t))
 	}
 
+	walk.jobTickDown()
+
 	return nil
+}
+
+func (walk *Walk) jobTickUp() {
+	walk.counterLocker.Lock()
+	defer walk.counterLocker.Unlock()
+
+	walk.jobsInFlight++
+}
+
+func (walk *Walk) jobTickDown() {
+	walk.counterLocker.Lock()
+	defer walk.counterLocker.Unlock()
+
+	walk.jobsInFlight--
+
+	// Safety check.
+	if walk.jobsInFlight < 0 {
+		log.Panicf("job counter is unbalanced: (%d)", walk.jobsInFlight)
+	}
+
+	if walk.jobsInFlight <= 0 {
+		close(walk.jobsC)
+	}
 }
 
 // handleJobDirectoryContentsBatch processes a batch of N directory entries. We
@@ -314,6 +360,7 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 
 	defer f.Close()
 
+	batchNumber := 0
 	for {
 		names, err := f.Readdirnames(directoryEntryBatchSize)
 		if err != nil {
@@ -324,10 +371,12 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 			log.Panic(err)
 		}
 
-		jdcb := newJobDirectoryContentsBatch(path, names)
+		jdcb := newJobDirectoryContentsBatch(path, batchNumber, names)
 
 		err = walk.pushJob(jdcb)
 		log.PanicIf(err)
+
+		batchNumber++
 	}
 
 	return nil
