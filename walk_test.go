@@ -478,6 +478,8 @@ func TestWalk_Run__simple(t *testing.T) {
 
 	if len(tempFilenames) != 0 {
 		t.Fatalf("Not all files were handled: %v", tempFilenames)
+	} else if walk.HasFinished() != true {
+		t.Fatalf("HasFinished() is not true.")
 	}
 }
 
@@ -564,6 +566,8 @@ func TestWalk_Run__heirarchical(t *testing.T) {
 		t.Fatalf("We expected one last directory (the root node): (%d)", len(tempPaths))
 	} else if len(tempFiles) != 0 {
 		t.Fatalf("Not all files were handled: %v", tempFiles)
+	} else if walk.HasFinished() != true {
+		t.Fatalf("HasFinished() is not true.")
 	}
 }
 
@@ -689,4 +693,37 @@ func TestWalk_Stats(t *testing.T) {
 	walk := new(Walk)
 	stats := walk.Stats()
 	stats.Dump()
+}
+
+func TestWalk_Stop(t *testing.T) {
+	defer func() {
+		err := recover().(error)
+		if err.Error() != "close of closed channel" {
+			log.Panic(err)
+		}
+	}()
+
+	walk := NewWalk("root/path", nil)
+	walk.initSync()
+
+	walk.Stop()
+
+	// This should panic and short-circuit to the defer above.
+	close(walk.jobsC)
+
+	t.Fatalf("Expected close() call to fail. It should have been redundant.")
+}
+
+func TestWalk_HasFinished(t *testing.T) {
+	w := Walk{}
+
+	if w.HasFinished() != false {
+		t.Fatalf("Initial HasFinished() wasn't false.")
+	}
+
+	w.hasFinished = true
+
+	if w.HasFinished() != true {
+		t.Fatalf("Final HasFinished() wasn't true.")
+	}
 }
