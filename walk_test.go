@@ -481,6 +481,92 @@ func TestWalk_Run__simple(t *testing.T) {
 	}
 }
 
+func TestWalk_Run__heirarchical(t *testing.T) {
+	// Stage test directory.
+
+	tempPath, err := ioutil.TempDir("", "")
+	log.PanicIf(err)
+
+	fileCount := 500
+	tempPath, tempFiles := FillHeirarchicalTempPath(fileCount, nil)
+
+	// Build a big map of all of the directories that we expect to see.
+
+	tempPaths := make(map[string]struct{})
+	for _, relFilepath := range tempFiles {
+		relPath := path.Dir(relFilepath)
+
+		for ptr := relPath; ptr != "."; ptr = path.Dir(ptr) {
+			tempPaths[ptr] = struct{}{}
+		}
+	}
+
+	// Walk
+
+	defer func() {
+		os.RemoveAll(tempPath)
+	}()
+
+	m := sync.Mutex{}
+
+	len_ := len(tempPath)
+	tempPathName := path.Base(tempPath)
+	rootNodeHit := false
+	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
+		var relParentPath string
+		if len(parentPath) > len_ {
+			relParentPath = parentPath[len_+1:]
+		} else if relParentPath == "" && info.Name() == tempPathName {
+			// This is the root node. Ignore.
+			rootNodeHit = true
+			return nil
+		}
+
+		m.Lock()
+		defer m.Unlock()
+
+		if info.IsDir() == true {
+			relPath := path.Join(relParentPath, info.Name())
+
+			if _, found := tempPaths[relPath]; found != true {
+				t.Fatalf("Temp path not known: [%s]", relPath)
+			}
+
+			delete(tempPaths, relPath)
+
+			return nil
+		}
+
+		filename := info.Name()
+		relFilepath := path.Join(relParentPath, filename)
+
+		// fmt.Printf("File> %s\n", relFilepath)
+
+		j := tempFiles.Search(relFilepath)
+		if j >= len(tempFiles) || tempFiles[j] != relFilepath {
+			t.Fatalf("Handled file was not in the temporary-files list: [%s]", relFilepath)
+			return nil
+		}
+
+		tempFiles = append(tempFiles[:j], tempFiles[j+1:]...)
+
+		return nil
+	}
+
+	walk := NewWalk(tempPath, walkFunc)
+
+	err = walk.Run()
+	log.PanicIf(err)
+
+	if rootNodeHit != true {
+		t.Fatalf("Root node was never visited.")
+	} else if len(tempPaths) != 0 {
+		t.Fatalf("We expected one last directory (the root node): (%d)", len(tempPaths))
+	} else if len(tempFiles) != 0 {
+		t.Fatalf("Not all files were handled: %v", tempFiles)
+	}
+}
+
 func ExampleWalk_Run() {
 	// Stage test directory.
 

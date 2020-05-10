@@ -7,8 +7,10 @@ import (
 	"sort"
 
 	"io/ioutil"
+	"math/rand"
 
 	"github.com/dsoprea/go-logging"
+	"github.com/google/uuid"
 )
 
 func FillFlatTempPath(fileCount int, pathPrefix []string) (tempPath string, tempFilenames sort.StringSlice) {
@@ -40,4 +42,46 @@ func FillFlatTempPath(fileCount int, pathPrefix []string) (tempPath string, temp
 	tempFilenames.Sort()
 
 	return tempPath, tempFilenames
+}
+
+func FillHeirarchicalTempPath(fileCount int, pathPrefix []string) (tempPath string, tempFiles sort.StringSlice) {
+	tempPath, err := ioutil.TempDir("", "")
+	log.PanicIf(err)
+
+	var effectiveTempPath string
+	if pathPrefix != nil {
+		suffixString := path.Join(pathPrefix...)
+		effectiveTempPath = path.Join(tempPath, suffixString)
+	} else {
+		effectiveTempPath = tempPath
+	}
+
+	tempFiles = make(sort.StringSlice, 0)
+	for i := 0; i < fileCount; i++ {
+		subdirectories := make([]string, 0)
+		j := rand.Intn(3)
+		for ; j >= 0; j-- {
+			uuidPhrase := uuid.New().String()
+			subdirectories = append(subdirectories, uuidPhrase)
+		}
+
+		subdirectoriesPhrase := path.Join(subdirectories...)
+		tempPath := path.Join(effectiveTempPath, subdirectoriesPhrase)
+
+		err = os.MkdirAll(tempPath, 0755)
+		log.PanicIf(err)
+
+		filename := fmt.Sprintf("temp-%d", i)
+		filepath := path.Join(tempPath, filename)
+
+		err := ioutil.WriteFile(filepath, []byte{}, 0)
+		log.PanicIf(err)
+
+		relFilepath := path.Join(subdirectoriesPhrase, filename)
+		tempFiles = append(tempFiles, relFilepath)
+	}
+
+	tempFiles.Sort()
+
+	return tempPath, tempFiles
 }
