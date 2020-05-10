@@ -1,6 +1,7 @@
 package pathwalk
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path"
@@ -33,6 +34,10 @@ const (
 	// directoryEntryBatchSize is the parcel size that we chunk directory
 	// entries into before individually dispatching them for handling.
 	directoryEntryBatchSize = 100
+)
+
+var (
+	ErrSkipDirectory = errors.New("skip directory")
 )
 
 // WalkFunc is the function type for the callback.
@@ -399,8 +404,6 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 		}
 	}()
 
-	// TODO(dustin): This should be able to return a specific error to skip child processing.
-
 	walk.statsLocker.Lock()
 	walk.stats.DirectoriesVisited++
 	walk.statsLocker.Unlock()
@@ -411,7 +414,17 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 	// We don't concern ourselves with symlinked directories. If they don't want
 	// to descend into them, they can detect them and skip.
 	err = walk.walkFunc(parentNodePath, info)
-	log.PanicIf(err)
+	if err != nil {
+		if err == ErrSkipDirectory {
+			walk.statsLocker.Lock()
+			walk.stats.DirectoriesIgnored++
+			walk.statsLocker.Unlock()
+
+			return nil
+		}
+
+		log.Panic(err)
+	}
 
 	// Now, push jobs for directory children.
 

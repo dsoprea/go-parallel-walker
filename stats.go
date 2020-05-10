@@ -29,6 +29,10 @@ type Stats struct {
 	// (leading to shutdown). Does not include time between the last job and a
 	// closed channel being detected (which is not true idleness).
 	IdleWorkerTime time.Duration
+
+	// DirectoriesIgnored is the number of directories that were signaled to be
+	// skipped using `ErrSkipDirectory`.
+	DirectoriesIgnored int
 }
 
 func (stats Stats) Dump() {
@@ -41,6 +45,7 @@ func (stats Stats) Dump() {
 	fmt.Printf("DirectoriesVisited: (%d)\n", stats.DirectoriesVisited)
 	fmt.Printf("EntryBatchesProcessed: (%d)\n", stats.EntryBatchesProcessed)
 	fmt.Printf("IdleWorkerTime: (%.03f) seconds\n", float64(stats.IdleWorkerTime)/float64(time.Second))
+	fmt.Printf("DirectoriesIgnored: (%d)\n", stats.DirectoriesIgnored)
 
 	fmt.Printf("\n")
 }

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"io/ioutil"
+
 	"github.com/dsoprea/go-logging"
 	"github.com/dsoprea/go-utility/filesystem"
 	"github.com/gobwas/glob"
@@ -474,6 +476,71 @@ func TestWalk_Run__simple(t *testing.T) {
 		t.Fatalf("Not all files were handled: %v", tempFilenames)
 	} else if walk.HasFinished() != true {
 		t.Fatalf("HasFinished() is not true.")
+	}
+}
+
+func TestWalk_Run__simple__skip(t *testing.T) {
+	// Stage test directory.
+
+	tempPath, err := ioutil.TempDir("", "")
+	log.PanicIf(err)
+
+	err = os.Mkdir(path.Join(tempPath, "dir1"), 0755)
+	log.PanicIf(err)
+
+	err = ioutil.WriteFile(path.Join(tempPath, "dir1", "file1"), []byte{}, 0)
+	log.PanicIf(err)
+
+	err = os.Mkdir(path.Join(tempPath, "dir2"), 0755)
+	log.PanicIf(err)
+
+	err = ioutil.WriteFile(path.Join(tempPath, "dir2", "file2"), []byte{}, 0)
+	log.PanicIf(err)
+
+	err = os.Mkdir(path.Join(tempPath, "dir3"), 0755)
+	log.PanicIf(err)
+
+	err = ioutil.WriteFile(path.Join(tempPath, "dir3", "file3"), []byte{}, 0)
+	log.PanicIf(err)
+
+	// Walk
+
+	defer func() {
+		os.RemoveAll(tempPath)
+	}()
+
+	m := sync.Mutex{}
+
+	tempFilenames := make([]string, 0)
+	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
+		if info.IsDir() == true {
+			if info.Name() == "dir2" {
+				return ErrSkipDirectory
+			}
+
+			return nil
+		}
+
+		tempFilename := info.Name()
+
+		m.Lock()
+		defer m.Unlock()
+
+		tempFilenames = append(tempFilenames, tempFilename)
+
+		return nil
+	}
+
+	walk := NewWalk(tempPath, walkFunc)
+
+	err = walk.Run()
+	log.PanicIf(err)
+
+	sort.Strings(tempFilenames)
+	expectedHandled := []string{"file1", "file3"}
+
+	if reflect.DeepEqual(tempFilenames, expectedHandled) != true {
+		t.Fatalf("Handled files not correct: %v\n", tempFilenames)
 	}
 }
 
