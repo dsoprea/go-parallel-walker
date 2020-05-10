@@ -684,3 +684,9 @@ func TestWalk_handleJobFileNode(t *testing.T) {
 		t.Fatalf("Callback not called.")
 	}
 }
+
+func TestWalk_Stats(t *testing.T) {
+	walk := new(Walk)
+	stats := walk.Stats()
+	stats.Dump()
+}

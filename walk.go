@@ -1,6 +1,7 @@
 package pathwalk
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -38,6 +39,46 @@ const (
 // WalkFunc is the function type for the callback.
 type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 
+type Stats struct {
+	// JobsDispatchedToNewWorker is the number of workers that were started to
+	// process a job.
+	JobsDispatchedToNewWorker int
+
+	// JobsDispatchedToIdleWorker is the number of jobs that were dispatched to
+	// an available, idle worker rather than starting a new one.
+	JobsDispatchedToIdleWorker int
+
+	// FilesVisited is the number of files that were visited.
+	FilesVisited int
+
+	// DirectoriesVisited is the number of directories that were visited.
+	DirectoriesVisited int
+
+	// EntryBatchesProcessed is the number of batches that directory entries
+	// were parceled into while processing.
+	EntryBatchesProcessed int
+
+	// IdleWorkerTime is the duration of all between-job time spent by workers.
+	// Only includes time between jobs and time between last job and timeout
+	// (leading to shutdown). Does not include time between the last job and a
+	// closed channel being detected (which is not true idleness).
+	IdleWorkerTime time.Duration
+}
+
+func (stats Stats) Dump() {
+	fmt.Printf("Processing Statistics\n")
+	fmt.Printf("=====================\n")
+
+	fmt.Printf("JobsDispatchedToNewWorker: (%d)\n", stats.JobsDispatchedToNewWorker)
+	fmt.Printf("JobsDispatchedToIdleWorker: (%d)\n", stats.JobsDispatchedToIdleWorker)
+	fmt.Printf("FilesVisited: (%d)\n", stats.FilesVisited)
+	fmt.Printf("DirectoriesVisited: (%d)\n", stats.DirectoriesVisited)
+	fmt.Printf("EntryBatchesProcessed: (%d)\n", stats.EntryBatchesProcessed)
+	fmt.Printf("IdleWorkerTime: (%.03f) seconds\n", float64(stats.IdleWorkerTime)/float64(time.Second))
+
+	fmt.Printf("\n")
+}
+
 // Walk knows how to traverse a tree in parallel.
 type Walk struct {
 	rootPath    string
@@ -55,6 +96,11 @@ type Walk struct {
 
 	jobsInFlight  int
 	counterLocker sync.Mutex
+
+	stats       Stats
+	statsLocker sync.Mutex
+
+	hasFinished bool
 }
 
 // NewWalk returns a new Walk struct.
@@ -65,6 +111,25 @@ func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 		bufferSize:  defaultBufferSize,
 		walkFunc:    walkFunc,
 	}
+}
+
+// Stats prints statistics about the last walking operation.
+func (walk *Walk) Stats() Stats {
+	return walk.stats
+}
+
+// HasFinished returns whether all entries have been visited and processed.
+func (walk *Walk) HasFinished() bool {
+	return walk.hasFinished
+}
+
+// Stop will signal all of the workers to terminate if Run() has not yet
+// returned. This is provided for the user to call as a result of some logic in
+// the callback that calls for immediate return.
+func (walk *Walk) Stop() {
+	close(walk.jobsC)
+
+	// Intentionally does not set `hasFinished`.
 }
 
 // SetConcurrency sets an alternative maximum number of workers.
@@ -88,6 +153,9 @@ func (walk *Walk) initSync() {
 
 	// To facilitate reuse of the struct for follow-up operations.
 	walk.jobsInFlight = 0
+
+	walk.stats = Stats{}
+	walk.hasFinished = false
 }
 
 // Run forks workers to process the tree. All workers will have quit by the time we return.
@@ -147,6 +215,10 @@ func (walk *Walk) pushJob(job Job) (err error) {
 		walk.stateLocker.Unlock()
 
 		go walk.nodeWorker()
+	} else {
+		walk.statsLocker.Lock()
+		walk.stats.JobsDispatchedToIdleWorker++
+		walk.statsLocker.Unlock()
 	}
 
 	walk.jobTickUp()
@@ -155,6 +227,20 @@ func (walk *Walk) pushJob(job Job) (err error) {
 	walk.jobsC <- job
 
 	return nil
+}
+
+// idleWorkerTickUp states that one worker has become idle.
+func (walk *Walk) idleWorkerTickUp() {
+	walk.stateLocker.Lock()
+	walk.idleWorkerCount++
+	walk.stateLocker.Unlock()
+}
+
+// idleWorkerTickDown states that one worker is no longer idle.
+func (walk *Walk) idleWorkerTickDown() {
+	walk.stateLocker.Lock()
+	walk.idleWorkerCount--
+	walk.stateLocker.Unlock()
 }
 
 // nodeWorker represents one worker goroutine. It will process jobs, it will
@@ -170,6 +256,10 @@ func (walk *Walk) nodeWorker() {
 
 	isWorking := false
 	tick := time.NewTicker(workerIdleCheckInterval)
+
+	walk.statsLocker.Lock()
+	walk.stats.JobsDispatchedToNewWorker++
+	walk.statsLocker.Unlock()
 
 	defer func() {
 		tick.Stop()
@@ -195,22 +285,22 @@ func (walk *Walk) nodeWorker() {
 
 	lastActivityTime := time.Now()
 
-	walk.stateLocker.Lock()
-	walk.idleWorkerCount++
-	walk.stateLocker.Unlock()
+	walk.idleWorkerTickUp()
 
 	for {
 		select {
 		case job, ok := <-walk.jobsC:
 			if ok == false {
 				// Channel is closed. The application must be closing. Shutdown.
-				// TODO(dustin): !! Debugging.
+
 				return
 			}
 
-			walk.stateLocker.Lock()
-			walk.idleWorkerCount--
-			walk.stateLocker.Unlock()
+			walk.idleWorkerTickDown()
+
+			walk.statsLocker.Lock()
+			walk.stats.IdleWorkerTime += time.Since(lastActivityTime)
+			walk.statsLocker.Unlock()
 
 			// This helps us manage our state if there's a panic.
 			isWorking = true
@@ -222,12 +312,15 @@ func (walk *Walk) nodeWorker() {
 
 			isWorking = false
 
-			walk.stateLocker.Lock()
-			walk.idleWorkerCount++
-			walk.stateLocker.Unlock()
+			walk.idleWorkerTickUp()
 		case <-tick.C:
 			if isWorking == false && time.Since(lastActivityTime) > maxWorkerIdleDuration {
 				// We haven't had anything to do for a while. Shutdown.
+
+				walk.statsLocker.Lock()
+				walk.stats.IdleWorkerTime += time.Since(lastActivityTime)
+				walk.statsLocker.Unlock()
+
 				return
 			}
 		}
@@ -287,6 +380,7 @@ func (walk *Walk) jobTickDown() {
 
 	if walk.jobsInFlight <= 0 {
 		close(walk.jobsC)
+		walk.hasFinished = true
 	}
 }
 
@@ -343,6 +437,10 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 
 	// TODO(dustin): This should be able to return a specific error to skip child processing.
 
+	walk.statsLocker.Lock()
+	walk.stats.DirectoriesVisited++
+	walk.statsLocker.Unlock()
+
 	parentNodePath := jdn.ParentNodePath()
 	info := jdn.Info()
 
@@ -379,6 +477,10 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 		batchNumber++
 	}
 
+	walk.statsLocker.Lock()
+	walk.stats.EntryBatchesProcessed += batchNumber
+	walk.statsLocker.Unlock()
+
 	return nil
 }
 
@@ -389,6 +491,10 @@ func (walk *Walk) handleJobFileNode(jfn jobFileNode) (err error) {
 			err = log.Wrap(state.(error))
 		}
 	}()
+
+	walk.statsLocker.Lock()
+	walk.stats.FilesVisited++
+	walk.statsLocker.Unlock()
 
 	parentNodePath := jfn.ParentNodePath()
 	info := jfn.Info()
