@@ -142,9 +142,9 @@ func (walk *Walk) SetBufferSize(bufferSize int) {
 	walk.bufferSize = bufferSize
 }
 
-// initSync sets-up the synchronization state. This is isolated as a separate
+// InitSync sets-up the synchronization state. This is isolated as a separate
 // step to support testing.
-func (walk *Walk) initSync() {
+func (walk *Walk) InitSync() {
 	// Our job pipeline.
 	walk.jobsC = make(chan Job, walk.concurrency)
 
@@ -166,7 +166,7 @@ func (walk *Walk) Run() (err error) {
 		}
 	}()
 
-	walk.initSync()
+	walk.InitSync()
 
 	defer func() {
 		// Wait/cleanup workers.

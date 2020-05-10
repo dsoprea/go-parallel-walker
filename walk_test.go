@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"io/ioutil"
-
 	"github.com/dsoprea/go-logging"
 	"github.com/dsoprea/go-utility/filesystem"
 )
@@ -269,7 +267,7 @@ func TestWalk_nodeWorker__pushJob__closeImmediately(t *testing.T) {
 
 	walk = NewWalk("", walkFunc)
 
-	walk.initSync()
+	walk.InitSync()
 
 	// Keep the coutner one higher than the actual count so that the last job
 	// won't induce the worker to be closed.
@@ -298,7 +296,7 @@ func TestWalk_nodeWorker__pushJob__closeWhenIdle(t *testing.T) {
 
 	walk = NewWalk("", walkFunc)
 
-	walk.initSync()
+	walk.InitSync()
 
 	// We'll state that there's one more job than there actually is so that the
 	// job-count won't drop all of the way to zero and the channel won't be
@@ -351,7 +349,7 @@ func TestWalk_handleJobDirectoryNode(t *testing.T) {
 	}
 
 	walk := NewWalk("", walkFunc)
-	walk.initSync()
+	walk.InitSync()
 
 	// Handle the root directory node.
 
@@ -378,9 +376,6 @@ func TestWalk_handleJobDirectoryNode(t *testing.T) {
 
 func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	// Stage a directory to walk.
-
-	tempPath, err := ioutil.TempDir("", "")
-	log.PanicIf(err)
 
 	fileCount := 5
 	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
@@ -410,7 +405,7 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	}
 
 	walk := NewWalk("", walkFunc)
-	walk.initSync()
+	walk.InitSync()
 
 	walk.jobsInFlight = 5
 
@@ -424,7 +419,7 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	jdcb := newJobDirectoryContentsBatch(tempPath, 0, childBatch)
 
 	// This will fork workers to process the children in batches.
-	err = walk.handleJobDirectoryContentsBatch(jdcb)
+	err := walk.handleJobDirectoryContentsBatch(jdcb)
 	log.PanicIf(err)
 
 	walk.wg.Wait()
@@ -436,9 +431,6 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 
 func TestWalk_Run__simple(t *testing.T) {
 	// Stage test directory.
-
-	tempPath, err := ioutil.TempDir("", "")
-	log.PanicIf(err)
 
 	fileCount := 200
 	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
@@ -473,7 +465,7 @@ func TestWalk_Run__simple(t *testing.T) {
 
 	walk := NewWalk(tempPath, walkFunc)
 
-	err = walk.Run()
+	err := walk.Run()
 	log.PanicIf(err)
 
 	if len(tempFilenames) != 0 {
@@ -483,11 +475,52 @@ func TestWalk_Run__simple(t *testing.T) {
 	}
 }
 
-func TestWalk_Run__heirarchical(t *testing.T) {
+func TestWalk_Run__simpleReuse(t *testing.T) {
+	// Test that we can run several walks on the same `Walk` struct.
+
 	// Stage test directory.
 
-	tempPath, err := ioutil.TempDir("", "")
-	log.PanicIf(err)
+	fileCount := 200
+	tempPath, _ := FillFlatTempPath(fileCount, nil)
+
+	defer func() {
+		os.RemoveAll(tempPath)
+	}()
+
+	// Walk
+
+	m := sync.Mutex{}
+
+	visitCount := 0
+	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
+		m.Lock()
+		defer m.Unlock()
+
+		visitCount++
+
+		return nil
+	}
+
+	walk := NewWalk(tempPath, walkFunc)
+
+	expectedCount := 0
+	for i := 0; i < 3; i++ {
+		walk.InitSync()
+
+		err := walk.Run()
+		log.PanicIf(err)
+
+		// Number of test files plus the root path.
+		expectedCount += fileCount + 1
+	}
+
+	if visitCount != expectedCount {
+		t.Fatalf("visitCount is not correct: (%d) != (%d)", visitCount, expectedCount)
+	}
+}
+
+func TestWalk_Run__heirarchical(t *testing.T) {
+	// Stage test directory.
 
 	fileCount := 500
 	tempPath, tempFiles := FillHeirarchicalTempPath(fileCount, nil)
@@ -557,7 +590,7 @@ func TestWalk_Run__heirarchical(t *testing.T) {
 
 	walk := NewWalk(tempPath, walkFunc)
 
-	err = walk.Run()
+	err := walk.Run()
 	log.PanicIf(err)
 
 	if rootNodeHit != true {
@@ -573,9 +606,6 @@ func TestWalk_Run__heirarchical(t *testing.T) {
 
 func ExampleWalk_Run() {
 	// Stage test directory.
-
-	tempPath, err := ioutil.TempDir("", "")
-	log.PanicIf(err)
 
 	fileCount := 20
 	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
@@ -597,7 +627,7 @@ func ExampleWalk_Run() {
 
 	walk := NewWalk(tempPath, walkFunc)
 
-	err = walk.Run()
+	err := walk.Run()
 	log.PanicIf(err)
 
 	// Output:
@@ -644,9 +674,9 @@ func TestNewWalk(t *testing.T) {
 	}
 }
 
-func TestWalk_initSync(t *testing.T) {
+func TestWalk_InitSync(t *testing.T) {
 	walk := new(Walk)
-	walk.initSync()
+	walk.InitSync()
 
 	if walk.jobsC == nil {
 		t.Fatalf("`jobsC` field not correct.")
@@ -704,7 +734,7 @@ func TestWalk_Stop(t *testing.T) {
 	}()
 
 	walk := NewWalk("root/path", nil)
-	walk.initSync()
+	walk.InitSync()
 
 	walk.Stop()
 
