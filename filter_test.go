@@ -1,6 +1,8 @@
 package pathwalk
 
 import (
+	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -32,6 +34,36 @@ func TestWalk_IsFileIncluded__includeOnly__missOnInclude(t *testing.T) {
 	}
 }
 
+func TestWalk_IsFileIncluded__includeOnly__caseSensitive(t *testing.T) {
+	walk := new(Walk)
+
+	f := Filters{
+		IncludeFilenames: []string{"filename2"},
+	}
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsFileIncluded("filename2") != true {
+		t.Fatalf("Expected include.")
+	}
+
+	if walk.filters.IsFileIncluded("Filename2") != false {
+		t.Fatalf("Expected exclude.")
+	}
+
+	f.IsCaseInsensitive = true
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsFileIncluded("filename2") != true {
+		t.Fatalf("Expected include.")
+	}
+
+	if walk.filters.IsFileIncluded("Filename2") != true {
+		t.Fatalf("Expected include.")
+	}
+}
+
 func TestWalk_IsFileIncluded__excludeOnly__hitOnExclude(t *testing.T) {
 	walk := new(Walk)
 
@@ -57,6 +89,36 @@ func TestWalk_IsFileIncluded__excludeOnly__missOnExclude(t *testing.T) {
 
 	if walk.filters.IsFileIncluded("filenameOther") != true {
 		t.Fatalf("Expected include.")
+	}
+}
+
+func TestWalk_IsFileIncluded__excludeOnly__caseSensitive(t *testing.T) {
+	walk := new(Walk)
+
+	f := Filters{
+		ExcludeFilenames: []string{"filename2"},
+	}
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsFileIncluded("filename2") != false {
+		t.Fatalf("Expected exclude.")
+	}
+
+	if walk.filters.IsFileIncluded("Filename2") != true {
+		t.Fatalf("Expected include.")
+	}
+
+	f.IsCaseInsensitive = true
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsFileIncluded("filename2") != false {
+		t.Fatalf("Expected exclude.")
+	}
+
+	if walk.filters.IsFileIncluded("Filename2") != false {
+		t.Fatalf("Expected exclude.")
 	}
 }
 
@@ -139,6 +201,36 @@ func TestWalk_IsPathIncluded__includeOnly__hitOnInclude(t *testing.T) {
 	walk.SetFilters(f)
 
 	if walk.filters.IsPathIncluded("aa/bb") != true {
+		t.Fatalf("Expected include.")
+	}
+}
+
+func TestWalk_IsPathIncluded__includeOnly__caseInsensitive(t *testing.T) {
+	walk := new(Walk)
+
+	f := Filters{
+		IncludePaths: []string{"aa/bb"},
+	}
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsPathIncluded("aa/bb") != true {
+		t.Fatalf("Expected include.")
+	}
+
+	if walk.filters.IsPathIncluded("Aa/bb") != false {
+		t.Fatalf("Expected exclude.")
+	}
+
+	f.IsCaseInsensitive = true
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsPathIncluded("aa/bb") != true {
+		t.Fatalf("Expected include.")
+	}
+
+	if walk.filters.IsPathIncluded("Aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 }
@@ -309,6 +401,36 @@ func TestWalk_IsPathIncluded__excludeOnly__missOnExclude(t *testing.T) {
 	}
 }
 
+func TestWalk_IsPathIncluded__excludeOnly__caseInsensitive(t *testing.T) {
+	walk := new(Walk)
+
+	f := Filters{
+		ExcludePaths: []string{"aa/bb"},
+	}
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsPathIncluded("aa/bb") != false {
+		t.Fatalf("Expected exclude.")
+	}
+
+	if walk.filters.IsPathIncluded("Aa/bb") != true {
+		t.Fatalf("Expected include.")
+	}
+
+	f.IsCaseInsensitive = true
+
+	walk.SetFilters(f)
+
+	if walk.filters.IsPathIncluded("aa/bb") != false {
+		t.Fatalf("Expected exclude.")
+	}
+
+	if walk.filters.IsPathIncluded("Aa/bb") != false {
+		t.Fatalf("Expected exclude.")
+	}
+}
+
 func TestWalk_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndPreemptExclude(t *testing.T) {
 	walk := new(Walk)
 
@@ -371,5 +493,27 @@ func TestWalk_IsPathIncluded__none__explicit(t *testing.T) {
 
 	if walk.filters.IsPathIncluded("some/path") != true {
 		t.Fatalf("Expected include.")
+	}
+}
+
+func TestNewInternalFilters(t *testing.T) {
+	f := Filters{
+		IncludePaths:     []string{"aa/bb"},
+		ExcludePaths:     []string{"cc/dd"},
+		IncludeFilenames: []string{"filename2", "filename1"},
+		ExcludeFilenames: []string{"filename3", "filename4"},
+	}
+
+	internal := newInternalFilters(f)
+
+	expectedFilters := internalFilters{
+		includePaths:     internal.includePaths,
+		excludePaths:     internal.excludePaths,
+		includeFilenames: sort.StringSlice{"filename1", "filename2"},
+		excludeFilenames: sort.StringSlice{"filename3", "filename4"},
+	}
+
+	if reflect.DeepEqual(internal, expectedFilters) != true {
+		t.Fatalf("Filters not correct: %v", internal)
 	}
 }
