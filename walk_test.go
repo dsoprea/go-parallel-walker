@@ -5,12 +5,14 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sort"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/dsoprea/go-logging"
 	"github.com/dsoprea/go-utility/filesystem"
+	"github.com/gobwas/glob"
 )
 
 func TestWalk_nodeWorker__openAndClose(t *testing.T) {
@@ -721,8 +723,13 @@ func TestWalk_handleJobFileNode(t *testing.T) {
 
 func TestWalk_Stats(t *testing.T) {
 	walk := new(Walk)
+
+	walk.stats.DirectoriesVisited = 123
+
 	stats := walk.Stats()
-	stats.Dump()
+	if stats != walk.stats {
+		t.Fatalf("Stats() does not return the right information.")
+	}
 }
 
 func TestWalk_Stop(t *testing.T) {
@@ -755,5 +762,45 @@ func TestWalk_HasFinished(t *testing.T) {
 
 	if w.HasFinished() != true {
 		t.Fatalf("Final HasFinished() wasn't true.")
+	}
+}
+
+func TestWalk_SetFilters__empty(t *testing.T) {
+	walk := new(Walk)
+
+	f := Filters{}
+	walk.SetFilters(f)
+
+	expectedFilters := internalFilters{
+		includePaths:     make([]glob.Glob, 0),
+		excludePaths:     make([]glob.Glob, 0),
+		includeFilenames: make(sort.StringSlice, 0),
+		excludeFilenames: make(sort.StringSlice, 0),
+	}
+
+	if reflect.DeepEqual(walk.filters, expectedFilters) != true {
+		t.Fatalf("Filters not correct: %v", walk.filters)
+	}
+}
+
+func TestWalk_SetFilters__nonempty(t *testing.T) {
+	walk := new(Walk)
+
+	f := Filters{
+		IncludeFilenames: []string{"filename2", "filename1"},
+		ExcludeFilenames: []string{"filename3", "filename4"},
+	}
+
+	walk.SetFilters(f)
+
+	expectedFilters := internalFilters{
+		includePaths:     make([]glob.Glob, 0),
+		excludePaths:     make([]glob.Glob, 0),
+		includeFilenames: sort.StringSlice{"filename1", "filename2"},
+		excludeFilenames: sort.StringSlice{"filename3", "filename4"},
+	}
+
+	if reflect.DeepEqual(walk.filters, expectedFilters) != true {
+		t.Fatalf("Filters not correct: %v", walk.filters)
 	}
 }

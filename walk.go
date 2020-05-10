@@ -1,7 +1,6 @@
 package pathwalk
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -39,46 +38,6 @@ const (
 // WalkFunc is the function type for the callback.
 type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 
-type Stats struct {
-	// JobsDispatchedToNewWorker is the number of workers that were started to
-	// process a job.
-	JobsDispatchedToNewWorker int
-
-	// JobsDispatchedToIdleWorker is the number of jobs that were dispatched to
-	// an available, idle worker rather than starting a new one.
-	JobsDispatchedToIdleWorker int
-
-	// FilesVisited is the number of files that were visited.
-	FilesVisited int
-
-	// DirectoriesVisited is the number of directories that were visited.
-	DirectoriesVisited int
-
-	// EntryBatchesProcessed is the number of batches that directory entries
-	// were parceled into while processing.
-	EntryBatchesProcessed int
-
-	// IdleWorkerTime is the duration of all between-job time spent by workers.
-	// Only includes time between jobs and time between last job and timeout
-	// (leading to shutdown). Does not include time between the last job and a
-	// closed channel being detected (which is not true idleness).
-	IdleWorkerTime time.Duration
-}
-
-func (stats Stats) Dump() {
-	fmt.Printf("Processing Statistics\n")
-	fmt.Printf("=====================\n")
-
-	fmt.Printf("JobsDispatchedToNewWorker: (%d)\n", stats.JobsDispatchedToNewWorker)
-	fmt.Printf("JobsDispatchedToIdleWorker: (%d)\n", stats.JobsDispatchedToIdleWorker)
-	fmt.Printf("FilesVisited: (%d)\n", stats.FilesVisited)
-	fmt.Printf("DirectoriesVisited: (%d)\n", stats.DirectoriesVisited)
-	fmt.Printf("EntryBatchesProcessed: (%d)\n", stats.EntryBatchesProcessed)
-	fmt.Printf("IdleWorkerTime: (%.03f) seconds\n", float64(stats.IdleWorkerTime)/float64(time.Second))
-
-	fmt.Printf("\n")
-}
-
 // Walk knows how to traverse a tree in parallel.
 type Walk struct {
 	rootPath    string
@@ -101,6 +60,8 @@ type Walk struct {
 	statsLocker sync.Mutex
 
 	hasFinished bool
+
+	filters internalFilters
 }
 
 // NewWalk returns a new Walk struct.
@@ -111,6 +72,13 @@ func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 		bufferSize:  defaultBufferSize,
 		walkFunc:    walkFunc,
 	}
+}
+
+// SetFilters sets filtering parameters for the next call to Run(). Behavior is
+// undefined if this is changed *during* a call to `Run()`. The filters will be
+// sorted automatically.
+func (walk *Walk) SetFilters(filters Filters) {
+	walk.filters = newInternalFilters(filters)
 }
 
 // Stats prints statistics about the last walking operation.
@@ -171,11 +139,11 @@ func (walk *Walk) Run() (err error) {
 	defer func() {
 		// Wait/cleanup workers.
 
-		// TODO(dustin): !! Wait for all of the workers to terminate. We can eliminate the wait by keep folder and file counters and then closing the channel at the bottom of the file handler if both are zero.
+		// The workers will terminate on their own, either because the count of
+		// in-flight jobs has dropped to zero or the workers all starve and
+		// terminate (which should never happen unless the concurrency level is
+		// too high).
 		walk.wg.Wait()
-
-		// TODO(dustin): !! The channel will already close automatically after the last entry.
-		//close(walk.jobsC)
 	}()
 
 	info, err := os.Stat(walk.rootPath)
@@ -280,8 +248,6 @@ func (walk *Walk) nodeWorker() {
 
 		walk.wg.Done()
 	}()
-
-	// TODO(dustin): Still needs a way to report errors.
 
 	lastActivityTime := time.Now()
 
@@ -392,8 +358,6 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 			err = log.Wrap(state.(error))
 		}
 	}()
-
-	// TODO(dustin): !! Apply directory filters
 
 	// Produce N leaf jobs from a batch of N items.
 
