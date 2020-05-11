@@ -6,492 +6,430 @@ import (
 	"testing"
 )
 
-func TestWalk_IsFileIncluded__includeOnly__hitOnInclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__includeOnly__hitOnInclude(t *testing.T) {
+	filter := Filters{
 		IncludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filename2") != true {
+	if internalFilter.IsFileIncluded("filename2") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsFileIncluded__includeOnly__missOnInclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__includeOnly__missOnInclude(t *testing.T) {
+	filter := Filters{
 		IncludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filenameOther") != false {
+	if internalFilter.IsFileIncluded("filenameOther") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsFileIncluded__includeOnly__caseSensitive(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__includeOnly__caseSensitive(t *testing.T) {
+	filter := Filters{
 		IncludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filename2") != true {
+	if internalFilter.IsFileIncluded("filename2") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	if walk.filters.IsFileIncluded("Filename2") != false {
+	if internalFilter.IsFileIncluded("Filename2") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	f.IsCaseInsensitive = true
+	internalFilter.isCaseInsensitive = true
 
-	walk.SetFilters(f)
-
-	if walk.filters.IsFileIncluded("filename2") != true {
+	if internalFilter.IsFileIncluded("filename2") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	if walk.filters.IsFileIncluded("Filename2") != true {
+	if internalFilter.IsFileIncluded("Filename2") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsFileIncluded__excludeOnly__hitOnExclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__excludeOnly__hitOnExclude(t *testing.T) {
+	filter := Filters{
 		ExcludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filename2") != false {
+	if internalFilter.IsFileIncluded("filename2") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsFileIncluded__excludeOnly__missOnExclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__excludeOnly__missOnExclude(t *testing.T) {
+	filter := Filters{
 		ExcludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filenameOther") != true {
+	if internalFilter.IsFileIncluded("filenameOther") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsFileIncluded__excludeOnly__caseSensitive(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__excludeOnly__caseSensitive(t *testing.T) {
+	filter := Filters{
 		ExcludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filename2") != false {
+	if internalFilter.IsFileIncluded("filename2") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsFileIncluded("Filename2") != true {
+	if internalFilter.IsFileIncluded("Filename2") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	f.IsCaseInsensitive = true
+	internalFilter.isCaseInsensitive = true
 
-	walk.SetFilters(f)
-
-	if walk.filters.IsFileIncluded("filename2") != false {
+	if internalFilter.IsFileIncluded("filename2") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsFileIncluded("Filename2") != false {
+	if internalFilter.IsFileIncluded("Filename2") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsFileIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndPreemptExclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndPreemptExclude(t *testing.T) {
+	filter := Filters{
 		IncludeFilenames: []string{"filename2"},
 		ExcludeFilenames: []string{"filename2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filename2") != true {
+	if internalFilter.IsFileIncluded("filename2") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsFileIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndExcludeOnWhole(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndExcludeOnWhole(t *testing.T) {
+	filter := Filters{
 		IncludeFilenames: []string{"included_file*"},
 		ExcludeFilenames: []string{"included_file_nevermind"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("included_file") != true {
+	if internalFilter.IsFileIncluded("included_file") != true {
 		t.Fatalf("Expected include (1).")
 	}
 
-	if walk.filters.IsFileIncluded("included_file_nevermind") != true {
+	if internalFilter.IsFileIncluded("included_file_nevermind") != true {
 		t.Fatalf("Expected include (2).")
 	}
 }
 
-func TestWalk_IsFileIncluded__includeAndExclude__includesCheckedBeforeExcludes__missOnBoth(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsFileIncluded__includeAndExclude__includesCheckedBeforeExcludes__missOnBoth(t *testing.T) {
+	filter := Filters{
 		IncludeFilenames: []string{"filename2"},
 		ExcludeFilenames: []string{"filename3"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filenameOther") != false {
+	if internalFilter.IsFileIncluded("filenameOther") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsFileIncluded__none__default(t *testing.T) {
-	walk := new(Walk)
+func TestinternalFilters_IsFileIncluded__none__default(t *testing.T) {
+	filter := Filters{}
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsFileIncluded("filename") != true {
+	if internalFilter.IsFileIncluded("filename") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsFileIncluded__none__explicit(t *testing.T) {
-	walk := new(Walk)
+func TestinternalFilters_IsFileIncluded__none__explicit(t *testing.T) {
+	filter := Filters{}
+	internalFilter := newInternalFilters(filter)
 
-	f := Filters{}
-
-	walk.SetFilters(f)
-
-	if walk.filters.IsFileIncluded("filename") != true {
+	if internalFilter.IsFileIncluded("filename") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/bb") != true {
+	if internalFilter.IsPathIncluded("aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__caseInsensitive(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__caseInsensitive(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/bb") != true {
+	if internalFilter.IsPathIncluded("aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	if walk.filters.IsPathIncluded("Aa/bb") != false {
+	if internalFilter.IsPathIncluded("Aa/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	f.IsCaseInsensitive = true
+	internalFilter.isCaseInsensitive = true
 
-	walk.SetFilters(f)
-
-	if walk.filters.IsPathIncluded("aa/bb") != true {
+	if internalFilter.IsPathIncluded("aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	if walk.filters.IsPathIncluded("Aa/bb") != true {
+	if internalFilter.IsPathIncluded("Aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__absolute__pattern__oneComponent(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__absolute__pattern__oneComponent(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/*x/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/bb") != false {
+	if internalFilter.IsPathIncluded("aa/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsPathIncluded("aa/xx/bb") != true {
+	if internalFilter.IsPathIncluded("aa/xx/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	if walk.filters.IsPathIncluded("aa/yy/bb") != false {
+	if internalFilter.IsPathIncluded("aa/yy/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsPathIncluded("aa/xx/yy/bb") != false {
+	if internalFilter.IsPathIncluded("aa/xx/yy/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__absolute__pattern__multipleComponentsDontMatch(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__absolute__pattern__multipleComponentsDontMatch(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/*bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/xx/yy/zzbb") != false {
+	if internalFilter.IsPathIncluded("aa/xx/yy/zzbb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__absolute__pattern__doesntMatchWhole(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__absolute__pattern__doesntMatchWhole(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa*bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/xx/yy/zzbb") != false {
+	if internalFilter.IsPathIncluded("aa/xx/yy/zzbb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__absolute__recursive(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__absolute__recursive(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/**/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
 	// Notice that the /**/ can also be a zero-length match.
-	if walk.filters.IsPathIncluded("aa/bb") != true {
+	if internalFilter.IsPathIncluded("aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	if walk.filters.IsPathIncluded("aa/cc") != false {
+	if internalFilter.IsPathIncluded("aa/cc") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsPathIncluded("aa/xx/bb") != true {
+	if internalFilter.IsPathIncluded("aa/xx/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 
 	// Notice that the wildcard operator will match only one directory.
-	if walk.filters.IsPathIncluded("aa/xx/yy/bb") != true {
+	if internalFilter.IsPathIncluded("aa/xx/yy/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__relative__left(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__relative__left(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"**/aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("root/path/aa/bb") != true {
+	if internalFilter.IsPathIncluded("root/path/aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__relative__right(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__relative__right(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/bb/**"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/bb/sub1") != true {
+	if internalFilter.IsPathIncluded("aa/bb/sub1") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__hitOnInclude__relative__both(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__hitOnInclude__relative__both(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"**/aa/bb/**"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("root/path/aa/bb/sub1") != true {
+	if internalFilter.IsPathIncluded("root/path/aa/bb/sub1") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeOnly__missOnInclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeOnly__missOnInclude(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("cc/dd") != false {
+	if internalFilter.IsPathIncluded("cc/dd") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__excludeOnly__hitOnExclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__excludeOnly__hitOnExclude(t *testing.T) {
+	filter := Filters{
 		ExcludePaths: []string{"aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/bb") != false {
+	if internalFilter.IsPathIncluded("aa/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__excludeOnly__missOnExclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__excludeOnly__missOnExclude(t *testing.T) {
+	filter := Filters{
 		ExcludePaths: []string{"aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("cc/dd") != true {
+	if internalFilter.IsPathIncluded("cc/dd") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__excludeOnly__caseInsensitive(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__excludeOnly__caseInsensitive(t *testing.T) {
+	filter := Filters{
 		ExcludePaths: []string{"aa/bb"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("aa/bb") != false {
+	if internalFilter.IsPathIncluded("aa/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsPathIncluded("Aa/bb") != true {
+	if internalFilter.IsPathIncluded("Aa/bb") != true {
 		t.Fatalf("Expected include.")
 	}
 
-	f.IsCaseInsensitive = true
+	internalFilter.isCaseInsensitive = true
 
-	walk.SetFilters(f)
-
-	if walk.filters.IsPathIncluded("aa/bb") != false {
+	if internalFilter.IsPathIncluded("aa/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 
-	if walk.filters.IsPathIncluded("Aa/bb") != false {
+	if internalFilter.IsPathIncluded("Aa/bb") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndPreemptExclude(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndPreemptExclude(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"path1/path2"},
 		ExcludePaths: []string{"path1/path2"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("path1/path2") != true {
+	if internalFilter.IsPathIncluded("path1/path2") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndExcludeOnWhole(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__includeOnPrefixAndExcludeOnWhole(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"path1/path2"},
 		ExcludePaths: []string{"path1/path2/path3"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("path1/path2/path3") != false {
+	if internalFilter.IsPathIncluded("path1/path2/path3") != false {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__missOnBoth(t *testing.T) {
-	walk := new(Walk)
-
-	f := Filters{
+func TestinternalFilters_IsPathIncluded__includeAndExclude__includesCheckedBeforeExcludes__missOnBoth(t *testing.T) {
+	filter := Filters{
 		IncludePaths: []string{"path1/path2"},
 		ExcludePaths: []string{"path3/path4"},
 	}
 
-	walk.SetFilters(f)
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("path/other") != false {
+	if internalFilter.IsPathIncluded("path/other") != false {
 		t.Fatalf("Expected exclude.")
 	}
 }
 
-func TestWalk_IsPathIncluded__none__default(t *testing.T) {
-	walk := new(Walk)
+func TestinternalFilters_IsPathIncluded__none__default(t *testing.T) {
+	filter := Filters{}
+	internalFilter := newInternalFilters(filter)
 
-	if walk.filters.IsPathIncluded("some/path") != true {
+	if internalFilter.IsPathIncluded("some/path") != true {
 		t.Fatalf("Expected include.")
 	}
 }
 
-func TestWalk_IsPathIncluded__none__explicit(t *testing.T) {
-	walk := new(Walk)
+func TestinternalFilters_IsPathIncluded__none__explicit(t *testing.T) {
+	filter := Filters{}
+	internalFilter := newInternalFilters(filter)
 
-	f := Filters{}
-
-	walk.SetFilters(f)
-
-	if walk.filters.IsPathIncluded("some/path") != true {
+	if internalFilter.IsPathIncluded("some/path") != true {
 		t.Fatalf("Expected include.")
 	}
 }
