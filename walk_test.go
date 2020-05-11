@@ -479,6 +479,20 @@ func TestWalk_Run__simple(t *testing.T) {
 	}
 }
 
+func TestWalk_Run__terminateBecauseOfJobError(t *testing.T) {
+	// This test makes sure that a job panic will terminate the pipeline (and
+	// not just hang or casually exit with empty results).
+
+	walk := NewWalk("/invalid/path", nil)
+
+	err := walk.Run()
+	if err == nil {
+		t.Fatalf("Expected panic due to invalid path.")
+	} else if err.Error() != "stat /invalid/path: no such file or directory" {
+		log.Panic(err)
+	}
+}
+
 func TestWalk_Run__simple__skip(t *testing.T) {
 	// Stage test directory.
 
