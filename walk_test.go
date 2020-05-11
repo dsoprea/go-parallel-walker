@@ -420,7 +420,7 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	childBatch := make([]string, len(tempFilenames))
 	copy(childBatch, tempFilenames)
 
-	jdcb := newJobDirectoryContentsBatch(tempPath, 0, childBatch)
+	jdcb := newJobDirectoryContentsBatch(tempPath, 0, childBatch, true)
 
 	// This will fork workers to process the children in batches.
 	err := walk.handleJobDirectoryContentsBatch(jdcb)

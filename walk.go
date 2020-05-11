@@ -12,6 +12,10 @@ import (
 	"github.com/dsoprea/go-logging"
 )
 
+var (
+	walkLogger = log.NewLogger("pathwalk.walk")
+)
+
 const (
 	// defaultConcurrency is the number of workers allowed to run in parallel.
 	// This is an untested number, but needs to accommodate the intermediate
@@ -66,17 +70,25 @@ type Walk struct {
 
 	hasFinished bool
 
-	filters internalFilters
+	filters          internalFilters
+	doLogFilterStats bool
 }
 
 // NewWalk returns a new Walk struct.
-func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
-	return &Walk{
+func NewWalk(rootPath string, walkFunc WalkFunc) (walk *Walk) {
+	walk = &Walk{
 		rootPath:    rootPath,
 		concurrency: defaultConcurrency,
 		bufferSize:  defaultBufferSize,
 		walkFunc:    walkFunc,
 	}
+
+	// Initialize empty filter state.
+
+	filters := Filters{}
+	walk.SetFilters(filters)
+
+	return walk
 }
 
 // SetFilters sets filtering parameters for the next call to Run(). Behavior is
@@ -84,6 +96,13 @@ func NewWalk(rootPath string, walkFunc WalkFunc) *Walk {
 // sorted automatically.
 func (walk *Walk) SetFilters(filters Filters) {
 	walk.filters = newInternalFilters(filters)
+
+	// Only log the stats if we have any filters.
+	walk.doLogFilterStats =
+		len(walk.filters.includePaths) > 0 ||
+			len(walk.filters.excludePaths) > 0 ||
+			len(walk.filters.includeFilenames) > 0 ||
+			len(walk.filters.excludeFilenames) > 0
 }
 
 // Stats prints statistics about the last walking operation.
@@ -102,7 +121,8 @@ func (walk *Walk) HasFinished() bool {
 func (walk *Walk) Stop() {
 	close(walk.jobsC)
 
-	// Intentionally does not set `hasFinished`.
+	// Intentionally does not set `hasFinished`, as we are specifically aborting
+	// the process.
 }
 
 // SetConcurrency sets an alternative maximum number of workers.
@@ -374,16 +394,21 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 		log.PanicIf(err)
 
 		if info.IsDir() == true {
-
-			// TODO(dustin): Apply directory filters.
-
 			jdn := newJobDirectoryNode(parentNodePath, info)
 
 			err := walk.pushJob(jdn)
 			log.PanicIf(err)
-		} else {
+		} else if jdcb.DoProcessFiles() == true {
+			// We'll only descend on a non-root path if it passed the path-
+			// filter above.
+			if walk.filters.IsFileIncluded(childFilename) != true {
+				walkLogger.Debugf(nil, "File excluded: [%s]", childFilename)
 
-			// TODO(dustin): Apply file filters.
+				walk.statsFilterExcludeTickUp()
+				continue
+			}
+
+			walk.statsFilterIncludeTickUp()
 
 			jfn := newJobFileNode(parentNodePath, info)
 
@@ -393,6 +418,26 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 	}
 
 	return nil
+}
+
+func (walk *Walk) statsFilterIncludeTickUp() {
+	if walk.doLogFilterStats == false {
+		return
+	}
+
+	walk.statsLocker.Lock()
+	walk.stats.FilterIncludes++
+	walk.statsLocker.Unlock()
+}
+
+func (walk *Walk) statsFilterExcludeTickUp() {
+	if walk.doLogFilterStats == false {
+		return
+	}
+
+	walk.statsLocker.Lock()
+	walk.stats.FilterExcludes++
+	walk.statsLocker.Unlock()
 }
 
 // handleJobDirectoryNode handles one directory note. It will read and parcel
@@ -411,19 +456,47 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 	parentNodePath := jdn.ParentNodePath()
 	info := jdn.Info()
 
-	// We don't concern ourselves with symlinked directories. If they don't want
-	// to descend into them, they can detect them and skip.
-	err = walk.walkFunc(parentNodePath, info)
-	if err != nil {
-		if err == ErrSkipDirectory {
-			walk.statsLocker.Lock()
-			walk.stats.DirectoriesIgnored++
-			walk.statsLocker.Unlock()
+	fqPath := path.Join(parentNodePath, info.Name())
+	rootPathPrefixLen := len(walk.rootPath) + 1
+	isIncluded := true
+	if len(fqPath) > rootPathPrefixLen {
+		relPath := fqPath[rootPathPrefixLen:]
 
-			return nil
+		// We process every directory due to recursive filter support (the path
+		// filters we are given apply to the complete parent expression), meaning
+		// that we need to descend all of the way down through the tree in order to
+		// know what is really included by the filters. However, we won't process
+		// any files unless their parent directory mtch the filter (or there was no
+		// filter).
+
+		if walk.filters.IsPathIncluded(relPath) != true {
+			walkLogger.Debugf(nil, "Directory excluded: [%s]", relPath)
+
+			walk.statsFilterExcludeTickUp()
+			isIncluded = false
+		} else {
+			walk.statsFilterIncludeTickUp()
 		}
+	}
 
-		log.Panic(err)
+	if isIncluded {
+		// Call callback, but only if it didn't get excluded by the filter.
+
+		// We don't concern ourselves with symlinked directories. If they don't want
+		// to descend into them, they can detect them and skip.
+
+		err = walk.walkFunc(parentNodePath, info)
+		if err != nil {
+			if err == ErrSkipDirectory {
+				walk.statsLocker.Lock()
+				walk.stats.DirectoriesIgnored++
+				walk.statsLocker.Unlock()
+
+				return nil
+			}
+
+			log.Panic(err)
+		}
 	}
 
 	// Now, push jobs for directory children.
@@ -446,7 +519,7 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 			log.Panic(err)
 		}
 
-		jdcb := newJobDirectoryContentsBatch(path, batchNumber, names)
+		jdcb := newJobDirectoryContentsBatch(path, batchNumber, names, isIncluded)
 
 		err = walk.pushJob(jdcb)
 		log.PanicIf(err)

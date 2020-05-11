@@ -74,16 +74,18 @@ func (jdn jobDirectoryNode) String() string {
 }
 
 type jobDirectoryContentsBatch struct {
-	parentPath  string
-	batchNumber int
-	childBatch  []string
+	parentPath     string
+	batchNumber    int
+	childBatch     []string
+	doProcessFiles bool
 }
 
-func newJobDirectoryContentsBatch(parentPath string, batchNumber int, childBatch []string) jobDirectoryContentsBatch {
+func newJobDirectoryContentsBatch(parentPath string, batchNumber int, childBatch []string, doProcessFiles bool) jobDirectoryContentsBatch {
 	return jobDirectoryContentsBatch{
-		parentPath:  parentPath,
-		batchNumber: batchNumber,
-		childBatch:  childBatch,
+		parentPath:     parentPath,
+		batchNumber:    batchNumber,
+		childBatch:     childBatch,
+		doProcessFiles: doProcessFiles,
 	}
 }
 
@@ -102,4 +104,10 @@ func (jdcb jobDirectoryContentsBatch) String() string {
 	return fmt.Sprintf(
 		"JobDirectoryContentsBatch<PARENT=[%s] BATCH=(%d) CHILD-COUNT=(%d)>",
 		jdcb.parentPath, jdcb.batchNumber, len(jdcb.childBatch))
+}
+
+// DoProcessFiles returns whether the files should be sent to the callback. This
+// is determined by the filters.
+func (jdcb jobDirectoryContentsBatch) DoProcessFiles() bool {
+	return jdcb.doProcessFiles
 }
