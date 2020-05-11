@@ -38,6 +38,9 @@ const (
 	// directoryEntryBatchSize is the parcel size that we chunk directory
 	// entries into before individually dispatching them for handling.
 	directoryEntryBatchSize = 100
+
+	// frontendIdleCheckInterval is how often the frontend checks for the find to be done.
+	frontendIdleCheckInterval = time.Millisecond * 500
 )
 
 var (
@@ -53,8 +56,9 @@ type Walk struct {
 	concurrency int
 	bufferSize  int
 
-	jobsC chan Job
-	wg    *sync.WaitGroup
+	jobsC   chan Job
+	errorsC chan error
+	wg      *sync.WaitGroup
 
 	workerCount     int
 	idleWorkerCount int
@@ -68,7 +72,11 @@ type Walk struct {
 	stats       Stats
 	statsLocker sync.Mutex
 
+	// hasFinished indicates that al jobs have been processed.
 	hasFinished bool
+
+	// hasStopped indicates that workers should no longer be running.
+	hasStopped bool
 
 	filters          internalFilters
 	doLogFilterStats bool
@@ -138,8 +146,11 @@ func (walk *Walk) SetBufferSize(bufferSize int) {
 // InitSync sets-up the synchronization state. This is isolated as a separate
 // step to support testing.
 func (walk *Walk) InitSync() {
-	// Our job pipeline.
+	// Our jobs channel.
 	walk.jobsC = make(chan Job, walk.concurrency)
+
+	// Our error channel
+	walk.errorsC = make(chan error, 0)
 
 	// Allows us to wait until jobs have completed before we exit.
 	walk.wg = new(sync.WaitGroup)
@@ -149,6 +160,7 @@ func (walk *Walk) InitSync() {
 
 	walk.stats = Stats{}
 	walk.hasFinished = false
+	walk.hasStopped = false
 }
 
 // Run forks workers to process the tree. All workers will have quit by the time we return.
@@ -162,13 +174,48 @@ func (walk *Walk) Run() (err error) {
 	walk.InitSync()
 
 	defer func() {
-		// Wait/cleanup workers.
+		walk.stateLocker.Lock()
+		hasWorkers := walk.workerCount > 0 || walk.idleWorkerCount > 0
+		walk.stateLocker.Unlock()
 
-		// The workers will terminate on their own, either because the count of
-		// in-flight jobs has dropped to zero or the workers all starve and
-		// terminate (which should never happen unless the concurrency level is
-		// too high).
-		walk.wg.Wait()
+		if hasWorkers == true {
+			// Wait/cleanup workers.
+
+			isRunning := true
+			var workerError error
+
+			tick := time.NewTicker(frontendIdleCheckInterval)
+
+			for isRunning == true {
+				select {
+				case err := <-walk.errorsC:
+					workerError = err
+					isRunning = false
+
+					// Signals workers to close.
+					close(walk.jobsC)
+				case <-tick.C:
+					// The same locker used to update this field.
+					walk.counterLocker.Lock()
+					isRunning = walk.hasStopped == false
+					walk.counterLocker.Unlock()
+				}
+			}
+
+			tick.Stop()
+
+			// The workers will terminate on their own, either because the count of
+			// in-flight jobs has dropped to zero or the workers all starve and
+			// terminate (which should never happen unless the concurrency level is
+			// too high).
+			walk.wg.Wait()
+
+			close(walk.errorsC)
+
+			if workerError != nil {
+				log.Panicf("worker terminated under error: %s", workerError.Error())
+			}
+		}
 	}()
 
 	info, err := os.Stat(walk.rootPath)
@@ -244,6 +291,8 @@ func (walk *Walk) nodeWorker() {
 		if state := recover(); state != nil {
 			err := log.Wrap(state.(error))
 			log.PrintErrorf(err, "Node worker panicked.")
+
+			walk.errorsC <- err
 		}
 	}()
 
@@ -371,6 +420,7 @@ func (walk *Walk) jobTickDown() {
 
 	if walk.jobsInFlight <= 0 {
 		close(walk.jobsC)
+		walk.hasStopped = true
 		walk.hasFinished = true
 	}
 }
