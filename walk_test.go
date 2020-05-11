@@ -846,42 +846,42 @@ func TestWalk_HasFinished(t *testing.T) {
 	}
 }
 
-func TestWalk_SetFilters__empty(t *testing.T) {
+func TestWalk_SetFilter__empty(t *testing.T) {
 	walk := new(Walk)
 
-	f := Filters{}
-	walk.SetFilters(f)
+	f := Filter{}
+	walk.SetFilter(f)
 
-	expectedFilters := internalFilters{
+	expectedFilter := internalFilter{
 		includePaths:     make([]glob.Glob, 0),
 		excludePaths:     make([]glob.Glob, 0),
 		includeFilenames: make(sort.StringSlice, 0),
 		excludeFilenames: make(sort.StringSlice, 0),
 	}
 
-	if reflect.DeepEqual(walk.filters, expectedFilters) != true {
-		t.Fatalf("Filters not correct: %v", walk.filters)
+	if reflect.DeepEqual(walk.filter, expectedFilter) != true {
+		t.Fatalf("Filter not correct: %v", walk.filter)
 	}
 }
 
-func TestWalk_SetFilters__nonempty(t *testing.T) {
+func TestWalk_SetFilter__nonempty(t *testing.T) {
 	walk := new(Walk)
 
-	f := Filters{
+	f := Filter{
 		IncludeFilenames: []string{"filename2", "filename1"},
 		ExcludeFilenames: []string{"filename3", "filename4"},
 	}
 
-	walk.SetFilters(f)
+	walk.SetFilter(f)
 
-	expectedFilters := internalFilters{
+	expectedFilter := internalFilter{
 		includePaths:     make([]glob.Glob, 0),
 		excludePaths:     make([]glob.Glob, 0),
 		includeFilenames: sort.StringSlice{"filename1", "filename2"},
 		excludeFilenames: sort.StringSlice{"filename3", "filename4"},
 	}
 
-	if reflect.DeepEqual(walk.filters, expectedFilters) != true {
-		t.Fatalf("Filters not correct: %v", walk.filters)
+	if reflect.DeepEqual(walk.filter, expectedFilter) != true {
+		t.Fatalf("Filter not correct: %v", walk.filter)
 	}
 }

@@ -10,9 +10,9 @@ import (
 	"github.com/gobwas/glob"
 )
 
-// Filters define the parameters that can be provided by the user to control the
+// Filter define the parameters that can be provided by the user to control the
 // walk.
-type Filters struct {
+type Filter struct {
 	IncludePaths     []string
 	ExcludePaths     []string
 	IncludeFilenames []string
@@ -21,8 +21,8 @@ type Filters struct {
 	IsCaseInsensitive bool
 }
 
-// internalFilters is a conditioned copy of the user filtering parameters.
-type internalFilters struct {
+// internalFilter is a conditioned copy of the user filtering parameters.
+type internalFilter struct {
 	includePaths     []glob.Glob
 	excludePaths     []glob.Glob
 	includeFilenames sort.StringSlice
@@ -32,16 +32,16 @@ type internalFilters struct {
 }
 
 // IsFileIncluded determines if the given filename should be visited.
-func (filters internalFilters) IsFileIncluded(filename string) bool {
-	if filters.isCaseInsensitive == true {
+func (filter internalFilter) IsFileIncluded(filename string) bool {
+	if filter.isCaseInsensitive == true {
 		filename = strings.ToLower(filename)
 	}
 
-	if len(filters.includeFilenames) > 0 {
+	if len(filter.includeFilenames) > 0 {
 		// If any included-files are declared, then any unmatched files will be
 		// skipped.
 
-		for _, includePattern := range filters.includeFilenames {
+		for _, includePattern := range filter.includeFilenames {
 			hit, err := filepath.Match(includePattern, filename)
 			log.PanicIf(err)
 
@@ -53,11 +53,11 @@ func (filters internalFilters) IsFileIncluded(filename string) bool {
 		return false
 	}
 
-	if len(filters.excludeFilenames) > 0 {
+	if len(filter.excludeFilenames) > 0 {
 		// If any included-files are declared, then any unmatched files will be
 		// skipped.
 
-		for _, excludePattern := range filters.excludeFilenames {
+		for _, excludePattern := range filter.excludeFilenames {
 			hit, err := filepath.Match(excludePattern, filename)
 			log.PanicIf(err)
 
@@ -73,16 +73,16 @@ func (filters internalFilters) IsFileIncluded(filename string) bool {
 }
 
 // IsPathIncluded determines if the given path should be visited.
-func (filters internalFilters) IsPathIncluded(currentPath string) bool {
-	if filters.isCaseInsensitive == true {
+func (filter internalFilter) IsPathIncluded(currentPath string) bool {
+	if filter.isCaseInsensitive == true {
 		currentPath = strings.ToLower(currentPath)
 	}
 
-	if len(filters.includePaths) > 0 {
+	if len(filter.includePaths) > 0 {
 		// If any included-files are declared, then any unmatched files will be
 		// skipped.
 
-		for _, includePattern := range filters.includePaths {
+		for _, includePattern := range filter.includePaths {
 			if includePattern.Match(currentPath) == true {
 				return true
 			}
@@ -91,11 +91,11 @@ func (filters internalFilters) IsPathIncluded(currentPath string) bool {
 		return false
 	}
 
-	if len(filters.excludePaths) > 0 {
+	if len(filter.excludePaths) > 0 {
 		// If any included-files are declared, then any unmatched files will be
 		// skipped.
 
-		for _, excludePattern := range filters.excludePaths {
+		for _, excludePattern := range filter.excludePaths {
 			if excludePattern.Match(currentPath) == true {
 				return false
 			}
@@ -106,50 +106,48 @@ func (filters internalFilters) IsPathIncluded(currentPath string) bool {
 	return true
 }
 
-// SetFilters sets filtering parameters for the next call to Run(). Behavior is
-// undefined if this is changed *during* a call to `Run()`. The filters will be
-// sorted automatically.
-func newInternalFilters(filters Filters) internalFilters {
+// newInternalFilters constructs an `internalFilter` from a `Filter`.
+func newInternalFilter(filter Filter) internalFilter {
 
-	internalFilters := internalFilters{
-		isCaseInsensitive: filters.IsCaseInsensitive,
+	internalFilter := internalFilter{
+		isCaseInsensitive: filter.IsCaseInsensitive,
 	}
 
-	internalFilters.includePaths = make([]glob.Glob, 0)
+	internalFilter.includePaths = make([]glob.Glob, 0)
 
-	if filters.IncludePaths != nil {
-		includePatterns := sort.StringSlice(filters.IncludePaths)
+	if filter.IncludePaths != nil {
+		includePatterns := sort.StringSlice(filter.IncludePaths)
 		sort.Sort(sort.Reverse(includePatterns))
 
 		for _, includePattern := range includePatterns {
-			internalFilters.includePaths = append(internalFilters.includePaths, glob.MustCompile(includePattern, '/'))
+			internalFilter.includePaths = append(internalFilter.includePaths, glob.MustCompile(includePattern, '/'))
 		}
 	}
 
-	internalFilters.excludePaths = make([]glob.Glob, 0)
+	internalFilter.excludePaths = make([]glob.Glob, 0)
 
-	if filters.ExcludePaths != nil {
-		excludePatterns := sort.StringSlice(filters.ExcludePaths)
+	if filter.ExcludePaths != nil {
+		excludePatterns := sort.StringSlice(filter.ExcludePaths)
 		sort.Sort(sort.Reverse(excludePatterns))
 
 		for _, excludePattern := range excludePatterns {
-			internalFilters.excludePaths = append(internalFilters.excludePaths, glob.MustCompile(excludePattern, '/'))
+			internalFilter.excludePaths = append(internalFilter.excludePaths, glob.MustCompile(excludePattern, '/'))
 		}
 	}
 
-	if filters.IncludeFilenames == nil {
-		internalFilters.includeFilenames = make(sort.StringSlice, 0)
+	if filter.IncludeFilenames == nil {
+		internalFilter.includeFilenames = make(sort.StringSlice, 0)
 	} else {
-		internalFilters.includeFilenames = sort.StringSlice(filters.IncludeFilenames)
-		internalFilters.includeFilenames.Sort()
+		internalFilter.includeFilenames = sort.StringSlice(filter.IncludeFilenames)
+		internalFilter.includeFilenames.Sort()
 	}
 
-	if filters.ExcludeFilenames == nil {
-		internalFilters.excludeFilenames = make(sort.StringSlice, 0)
+	if filter.ExcludeFilenames == nil {
+		internalFilter.excludeFilenames = make(sort.StringSlice, 0)
 	} else {
-		internalFilters.excludeFilenames = sort.StringSlice(filters.ExcludeFilenames)
-		internalFilters.excludeFilenames.Sort()
+		internalFilter.excludeFilenames = sort.StringSlice(filter.ExcludeFilenames)
+		internalFilter.excludeFilenames.Sort()
 	}
 
-	return internalFilters
+	return internalFilter
 }

@@ -124,7 +124,7 @@ func main() {
 		walk.SetBufferSize(arguments.JobQueueLength)
 	}
 
-	filters := pathwalk.Filters{
+	filter := pathwalk.Filter{
 		IncludePaths:     arguments.IncludePaths,
 		ExcludePaths:     arguments.ExcludePaths,
 		IncludeFilenames: arguments.IncludeFilenames,
@@ -133,7 +133,7 @@ func main() {
 		IsCaseInsensitive: arguments.IsCaseInsensitive,
 	}
 
-	walk.SetFilters(filters)
+	walk.SetFilter(filter)
 
 	err = walk.Run()
 	log.PanicIf(err)

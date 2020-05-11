@@ -78,7 +78,7 @@ type Walk struct {
 	// hasStopped indicates that workers should no longer be running.
 	hasStopped bool
 
-	filters          internalFilters
+	filter           internalFilter
 	doLogFilterStats bool
 }
 
@@ -93,24 +93,24 @@ func NewWalk(rootPath string, walkFunc WalkFunc) (walk *Walk) {
 
 	// Initialize empty filter state.
 
-	filters := Filters{}
-	walk.SetFilters(filters)
+	filter := Filter{}
+	walk.SetFilter(filter)
 
 	return walk
 }
 
-// SetFilters sets filtering parameters for the next call to Run(). Behavior is
+// SetFilter sets filtering parameters for the next call to Run(). Behavior is
 // undefined if this is changed *during* a call to `Run()`. The filters will be
 // sorted automatically.
-func (walk *Walk) SetFilters(filters Filters) {
-	walk.filters = newInternalFilters(filters)
+func (walk *Walk) SetFilter(filter Filter) {
+	walk.filter = newInternalFilter(filter)
 
 	// Only log the stats if we have any filters.
 	walk.doLogFilterStats =
-		len(walk.filters.includePaths) > 0 ||
-			len(walk.filters.excludePaths) > 0 ||
-			len(walk.filters.includeFilenames) > 0 ||
-			len(walk.filters.excludeFilenames) > 0
+		len(walk.filter.includePaths) > 0 ||
+			len(walk.filter.excludePaths) > 0 ||
+			len(walk.filter.includeFilenames) > 0 ||
+			len(walk.filter.excludeFilenames) > 0
 }
 
 // Stats prints statistics about the last walking operation.
@@ -451,7 +451,7 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 		} else if jdcb.DoProcessFiles() == true {
 			// We'll only descend on a non-root path if it passed the path-
 			// filter above.
-			if walk.filters.IsFileIncluded(childFilename) != true {
+			if walk.filter.IsFileIncluded(childFilename) != true {
 				walkLogger.Debugf(nil, "File excluded: [%s]", childFilename)
 
 				walk.statsFilterExcludeTickUp()
@@ -519,7 +519,7 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 		// any files unless their parent directory mtch the filter (or there was no
 		// filter).
 
-		if walk.filters.IsPathIncluded(relPath) != true {
+		if walk.filter.IsPathIncluded(relPath) != true {
 			walkLogger.Debugf(nil, "Directory excluded: [%s]", relPath)
 
 			walk.statsFilterExcludeTickUp()
