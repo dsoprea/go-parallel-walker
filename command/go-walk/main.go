@@ -16,7 +16,9 @@ import (
 )
 
 type parameters struct {
-	RootPath string `short:"p" long:"root-path" required:"true" description:"Path to walk. This path will be included in the results."`
+	Positional struct {
+		RootPath string `positional-arg-name:"root_path" description:"Path to walk. This path will be included in the results."`
+	} `positional-args:"yes" required:"yes"`
 
 	ConcurrencyLevel int `short:"j" long:"concurrency" description:"Non-default maximum number of workers"`
 	JobQueueLength   int `short:"q" long:"queue-length" description:"Non-default job-queue length"`
@@ -117,7 +119,7 @@ func main() {
 		log.LoadConfiguration(scp)
 	}
 
-	rootPath = strings.TrimRight(arguments.RootPath, "/")
+	rootPath = strings.TrimRight(arguments.Positional.RootPath, "/")
 	rootPathLen = len(rootPath) + 1
 
 	collected := make([]map[string]interface{}, 0)

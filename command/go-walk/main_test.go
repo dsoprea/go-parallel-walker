@@ -46,7 +46,7 @@ func TestMain(t *testing.T) {
 
 	os.Args = []string{
 		os.Args[0],
-		"--root-path", tempPath,
+		tempPath,
 	}
 
 	main()
