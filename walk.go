@@ -38,6 +38,10 @@ const (
 	// directory entries into before individually dispatching them for handling.
 	defaultDirectoryEntryBatchSize = 100
 
+	// defaultTimeoutDuration is the amount of time that can elapsed without any
+	// activity before we timeout and complain about dead-lock.
+	defaultTimeoutDuration = time.Second * 1
+
 	// maxWorkerIdleDuration is how long a work waits while idle for new jobs
 	// before it shuts down.
 	maxWorkerIdleDuration = time.Second * 2
@@ -64,9 +68,10 @@ type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 type Walk struct {
 	rootPath string
 
-	concurrency int
-	bufferSize  int
-	batchSize   int
+	concurrency     int
+	bufferSize      int
+	batchSize       int
+	timeoutDuration time.Duration
 
 	jobsC   chan Job
 	errorsC chan error
@@ -99,9 +104,10 @@ func NewWalk(rootPath string, walkFunc WalkFunc) (walk *Walk) {
 	walk = &Walk{
 		rootPath: rootPath,
 
-		concurrency: defaultConcurrency,
-		bufferSize:  defaultBufferSize,
-		batchSize:   defaultDirectoryEntryBatchSize,
+		concurrency:     defaultConcurrency,
+		bufferSize:      defaultBufferSize,
+		batchSize:       defaultDirectoryEntryBatchSize,
+		timeoutDuration: defaultTimeoutDuration,
 
 		walkFunc: walkFunc,
 	}
@@ -164,6 +170,12 @@ func (walk *Walk) SetBatchSize(batchSize int) {
 	walk.batchSize = batchSize
 }
 
+// SetGlobalTimeoutDuration sets a non-default duration, after which if no
+// activity has happened than we should consider ourselves dead-locked.
+func (walk *Walk) SetGlobalTimeoutDuration(timeoutDuration time.Duration) {
+	walk.timeoutDuration = timeoutDuration
+}
+
 // InitSync sets-up the synchronization state. This is isolated as a separate
 // step to support testing.
 func (walk *Walk) InitSync() {
@@ -206,6 +218,8 @@ func (walk *Walk) Run() (err error) {
 			var workerError error
 
 			tick := time.NewTicker(frontendIdleCheckInterval)
+			lastState := [2]int{0, 0}
+			lastStateChange := time.Now()
 
 			for isRunning == true {
 				select {
@@ -220,6 +234,17 @@ func (walk *Walk) Run() (err error) {
 					walk.counterLocker.Lock()
 					isRunning = walk.hasStopped == false
 					walk.counterLocker.Unlock()
+
+					// Check for deadlock.
+
+					currentState := [2]int{walk.stats.FilesVisited, walk.stats.DirectoriesVisited}
+
+					if currentState != lastState {
+						lastState = currentState
+						lastStateChange = time.Now()
+					} else if time.Since(lastStateChange) > walk.timeoutDuration {
+						walk.errorsC <- errors.New("walk appears to be dead-locked; if this is not the case, provide a higher timeout duration")
+					}
 				}
 			}
 
