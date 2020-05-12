@@ -743,6 +743,15 @@ func TestWalk_SetBatchSize(t *testing.T) {
 	}
 }
 
+func TestWalk_SetGlobalTimeoutDuration(t *testing.T) {
+	walk := new(Walk)
+	walk.SetGlobalTimeoutDuration(99)
+
+	if walk.timeoutDuration != 99 {
+		t.Fatalf("'timeoutDuration' field not correct: (%d)", walk.timeoutDuration)
+	}
+}
+
 func TestNewWalk(t *testing.T) {
 	flag := false
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
