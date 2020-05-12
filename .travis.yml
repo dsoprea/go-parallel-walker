@@ -1,0 +1,17 @@
+language: go
+go:
+  - master
+  - stable
+  - "1.13"
+  - "1.12"
+  - "1.11"
+  - "1.10"
+install:
+  - go get -t ./...
+  - go get github.com/mattn/goveralls
+script:
+  - go test -v ./...
+  - goveralls -v -service=travis-ci -package github.com/dsoprea/go-parallel-walker
+
+# TODO(dustin): Include coverage for the command
+#-package github.com/dsoprea/go-parallel-walker/command/go-walk
