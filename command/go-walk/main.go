@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 
 	"github.com/dsoprea/go-logging"
+	"github.com/dsoprea/go-utility/data"
 	"github.com/jessevdk/go-flags"
 
 	"github.com/dsoprea/go-parallel-walker"
@@ -38,6 +39,8 @@ type parameters struct {
 
 	DoPrintStats     bool `short:"s" long:"stats" description:"Print statistics. Ignored if printing JSON."`
 	DoPrintVerbosity bool `short:"v" long:"verbose" description:"Print logging verbosity"`
+
+	DoIncludeMimeType bool `short:"m" long:"mime-type" description:"Include MIME-types in the output. Prints hyphen for directories or for files that could not be processed."`
 }
 
 var (
@@ -63,6 +66,15 @@ func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath s
 
 	relName := fqName[rootPathLen:]
 
+	var mimeType string
+	if info.IsDir() == false && arguments.DoIncludeMimeType == true {
+		f, err := os.Open(fqName)
+		if err == nil {
+			mimeType, _ = ridata.DetectMimetype(f)
+			f.Close()
+		}
+	}
+
 	outputLocker.Lock()
 	defer outputLocker.Unlock()
 
@@ -73,6 +85,10 @@ func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath s
 			"size":          info.Size(),
 			"modified_time": info.ModTime().Format(time.RFC3339),
 			"mode":          info.Mode(),
+		}
+
+		if mimeType != "" {
+			flat["mime_type"] = mimeType
 		}
 
 		collectedUpdated := append(*collected, flat)
@@ -90,6 +106,14 @@ func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath s
 		}
 
 		fmt.Printf("%s ", typeInitial)
+	}
+
+	if arguments.DoIncludeMimeType == true {
+		if mimeType != "" {
+			fmt.Printf("%s ", mimeType)
+		} else {
+			fmt.Printf("- ")
+		}
 	}
 
 	fmt.Printf("%s\n", relName)
