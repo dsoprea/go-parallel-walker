@@ -77,11 +77,11 @@ f application/zip trainingandtestdata.zip
 f application/x-gzip 20news-19997.tar.gz
 f application/zip gdelt_20191018051500/20191018051500.export.CSV.zip
 f application/zip gdelt_20191018051500/20191018051500.mentions.CSV.zip
-f text/plain; charset=utf-8 gdelt_20191018051500/20191018051500.gkg.csv
-f text/plain; charset=utf-8 gdelt_20191018051500/20191018051500.mentions.CSV
+f text/plain charset=utf-8 gdelt_20191018051500/20191018051500.gkg.csv
+f text/plain charset=utf-8 gdelt_20191018051500/20191018051500.mentions.CSV
 f application/zip gdelt_20191018051500/20191018051500.gkg.csv.zip
 f application/zip blogs.zip
-f text/plain; charset=utf-8 gdelt_20191018051500/20191018051500.export.CSV
+f text/plain charset=utf-8 gdelt_20191018051500/20191018051500.export.CSV
 ```
 
 As JSON:
