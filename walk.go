@@ -454,11 +454,11 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 			if walk.filter.IsFileIncluded(childFilename) != true {
 				walkLogger.Debugf(nil, "File excluded: [%s]", childFilename)
 
-				walk.statsFilterExcludeTickUp()
+				walk.statsFileFilterExcludeTickUp()
 				continue
 			}
 
-			walk.statsFilterIncludeTickUp()
+			walk.statsFileFilterIncludeTickUp()
 
 			jfn := newJobFileNode(parentNodePath, info)
 
@@ -470,23 +470,43 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 	return nil
 }
 
-func (walk *Walk) statsFilterIncludeTickUp() {
+func (walk *Walk) statsPathFilterIncludeTickUp() {
 	if walk.doLogFilterStats == false {
 		return
 	}
 
 	walk.statsLocker.Lock()
-	walk.stats.FilterIncludes++
+	walk.stats.PathFilterIncludes++
 	walk.statsLocker.Unlock()
 }
 
-func (walk *Walk) statsFilterExcludeTickUp() {
+func (walk *Walk) statsPathFilterExcludeTickUp() {
 	if walk.doLogFilterStats == false {
 		return
 	}
 
 	walk.statsLocker.Lock()
-	walk.stats.FilterExcludes++
+	walk.stats.PathFilterExcludes++
+	walk.statsLocker.Unlock()
+}
+
+func (walk *Walk) statsFileFilterIncludeTickUp() {
+	if walk.doLogFilterStats == false {
+		return
+	}
+
+	walk.statsLocker.Lock()
+	walk.stats.FileFilterIncludes++
+	walk.statsLocker.Unlock()
+}
+
+func (walk *Walk) statsFileFilterExcludeTickUp() {
+	if walk.doLogFilterStats == false {
+		return
+	}
+
+	walk.statsLocker.Lock()
+	walk.stats.FileFilterExcludes++
 	walk.statsLocker.Unlock()
 }
 
@@ -522,10 +542,10 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 		if walk.filter.IsPathIncluded(relPath) != true {
 			walkLogger.Debugf(nil, "Directory excluded: [%s]", relPath)
 
-			walk.statsFilterExcludeTickUp()
+			walk.statsPathFilterExcludeTickUp()
 			isIncluded = false
 		} else {
-			walk.statsFilterIncludeTickUp()
+			walk.statsPathFilterIncludeTickUp()
 		}
 	}
 

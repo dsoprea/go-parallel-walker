@@ -34,13 +34,21 @@ type Stats struct {
 	// skipped using `ErrSkipDirectory`.
 	DirectoriesIgnored int
 
-	// FilterIncludes is the number of include hits or exclude misses if at
-	// least one filter rule was provided.
-	FilterIncludes int
+	// PathFilterIncludes is the number of path include hits or exclude misses
+	// if at least one filter rule was provided.
+	PathFilterIncludes int
 
-	// FilterExcludes is the number of include misses or exclude hits if at
-	// least one filter rule was provided.
-	FilterExcludes int
+	// PathFilterExcludes is the number of path include misses or exclude hits
+	// if at least one filter rule was provided.
+	PathFilterExcludes int
+
+	// FileFilterIncludes is the number of file include hits or exclude misses
+	// if at least one filter rule was provided.
+	FileFilterIncludes int
+
+	// FileFilterExcludes is the number of file include misses or exclude hits
+	// if at least one filter rule was provided.
+	FileFilterExcludes int
 }
 
 func (stats Stats) Dump() {
@@ -54,8 +62,10 @@ func (stats Stats) Dump() {
 	fmt.Printf("EntryBatchesProcessed: (%d)\n", stats.EntryBatchesProcessed)
 	fmt.Printf("IdleWorkerTime: (%.03f) seconds\n", float64(stats.IdleWorkerTime)/float64(time.Second))
 	fmt.Printf("DirectoriesIgnored: (%d)\n", stats.DirectoriesIgnored)
-	fmt.Printf("FilterIncludes: (%d)\n", stats.FilterIncludes)
-	fmt.Printf("FilterExcludes: (%d)\n", stats.FilterExcludes)
+	fmt.Printf("PathFilterIncludes: (%d)\n", stats.PathFilterIncludes)
+	fmt.Printf("PathFilterExcludes: (%d)\n", stats.PathFilterExcludes)
+	fmt.Printf("FileFilterIncludes: (%d)\n", stats.FileFilterIncludes)
+	fmt.Printf("FileFilterExcludes: (%d)\n", stats.FileFilterExcludes)
 
 	fmt.Printf("\n")
 }
