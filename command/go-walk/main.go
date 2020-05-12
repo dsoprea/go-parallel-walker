@@ -15,7 +15,7 @@ import (
 	"github.com/dsoprea/go-parallel-walker"
 )
 
-type Parameters struct {
+type parameters struct {
 	RootPath string `short:"p" long:"root-path" required:"true" description:"Path to walk. This path will be included in the results."`
 
 	ConcurrencyLevel int `short:"j" long:"concurrency" description:"Non-default maximum number of workers."`
@@ -37,7 +37,7 @@ type Parameters struct {
 }
 
 var (
-	arguments = new(Parameters)
+	arguments = new(parameters)
 )
 
 var (
@@ -45,20 +45,22 @@ var (
 	rootPathLen int
 )
 
-func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath string, info os.FileInfo, collectedIn []map[string]interface{}) (collectedOut []map[string]interface{}, err error) {
+func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath string, info os.FileInfo, collected *[]map[string]interface{}) (err error) {
 	if arguments.DoJustPrintDirectories == true && info.IsDir() == false ||
 		arguments.DoJustPrintFiles == true && info.IsDir() == true {
-		return nil, nil
+		return nil
 	}
 
 	fqName := path.Join(parentNodePath, info.Name())
 
 	if fqName == rootPath {
-		return nil, nil
+		return nil
 	}
 
-	rootPathLen = len(rootPath) + 1
 	relName := fqName[rootPathLen:]
+
+	outputLocker.Lock()
+	defer outputLocker.Unlock()
 
 	if arguments.DoPrintAsJson == true {
 		flat := map[string]interface{}{
@@ -66,12 +68,11 @@ func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath s
 			"is_directory": info.IsDir(),
 		}
 
-		collectedOut = append(collectedIn, flat)
-		return nil, nil
-	}
+		collectedUpdated := append(*collected, flat)
+		*collected = collectedUpdated
 
-	outputLocker.Lock()
-	defer outputLocker.Unlock()
+		return nil
+	}
 
 	if arguments.DoPrintTypes == true {
 		var typeInitial string
@@ -86,7 +87,7 @@ func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath s
 
 	fmt.Printf("%s\n", relName)
 
-	return nil, nil
+	return nil
 }
 
 func main() {
@@ -116,11 +117,12 @@ func main() {
 	}
 
 	rootPath = strings.TrimRight(arguments.RootPath, "/")
+	rootPathLen = len(rootPath) + 1
 
 	collected := make([]map[string]interface{}, 0)
 	outputLocker := sync.Mutex{}
 	visitorFunctionWrapper := func(parentNodePath string, info os.FileInfo) (err error) {
-		collected, err = visitorFunction(&outputLocker, rootPath, parentNodePath, info, collected)
+		err = visitorFunction(&outputLocker, rootPath, parentNodePath, info, &collected)
 		log.PanicIf(err)
 
 		return nil

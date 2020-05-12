@@ -44,6 +44,8 @@ const (
 )
 
 var (
+	// ErrSkipDirectory can be returned by the visitor if a directory to skip
+	// walking its contents.
 	ErrSkipDirectory = errors.New("skip directory")
 )
 

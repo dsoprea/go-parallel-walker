@@ -61,7 +61,8 @@ func TestWalk_nodeWorker__openAndClose(t *testing.T) {
 
 func TestWalk_nodeWorker__closeWhenIdle(t *testing.T) {
 
-	// Our idle-timeout is very short. This test creates a worker adn waits for it to quick soon after.
+	// Our idle-timeout is very short. This test creates a worker and waits for
+	// it to quick soon after.
 
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
@@ -107,7 +108,8 @@ func TestWalk_nodeWorker__closeWhenIdle(t *testing.T) {
 
 func TestWalk_nodeWorker__processOneJob(t *testing.T) {
 
-	// Our idle-timeout is very short. This test creates a worker adn waits for it to quick soon after.
+	// Our idle-timeout is very short. This test creates a worker and waits for
+	// it to quick soon after.
 
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
@@ -175,7 +177,8 @@ func TestWalk_nodeWorker__processOneJob(t *testing.T) {
 
 func TestWalk_nodeWorker__processMultipleJob(t *testing.T) {
 
-	// Our idle-timeout is very short. This test creates a worker adn waits for it to quick soon after.
+	// Our idle-timeout is very short. This test creates a worker and waits for
+	// it to quick soon after.
 
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
@@ -627,13 +630,13 @@ func TestWalk_Run__heirarchical(t *testing.T) {
 
 	m := sync.Mutex{}
 
-	len_ := len(tempPath)
+	tempPathLen := len(tempPath)
 	tempPathName := path.Base(tempPath)
 	rootNodeHit := false
 	walkFunc := func(parentPath string, info os.FileInfo) (err error) {
 		var relParentPath string
-		if len(parentPath) > len_ {
-			relParentPath = parentPath[len_+1:]
+		if len(parentPath) > tempPathLen {
+			relParentPath = parentPath[tempPathLen+1:]
 		} else if relParentPath == "" && info.Name() == tempPathName {
 			// This is the root node. Ignore.
 			rootNodeHit = true

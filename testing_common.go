@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 )
 
+// FillFlatTempPath creates a temporary directory and fills a single
+// subdirectory with test files.
 func FillFlatTempPath(fileCount int, pathPrefix []string) (tempPath string, tempFilenames sort.StringSlice) {
 	tempPath, err := ioutil.TempDir("", "")
 	log.PanicIf(err)
@@ -44,6 +46,8 @@ func FillFlatTempPath(fileCount int, pathPrefix []string) (tempPath string, temp
 	return tempPath, tempFilenames
 }
 
+// FillHeirarchicalTempPath creates a temporary directory and filles a bunch of
+// random-depth subdirectories with test-files.
 func FillHeirarchicalTempPath(fileCount int, pathPrefix []string) (tempPath string, tempFiles sort.StringSlice) {
 	tempPath, err := ioutil.TempDir("", "")
 	log.PanicIf(err)

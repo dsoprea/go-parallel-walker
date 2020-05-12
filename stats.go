@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Stats describes all stats collected by the walking process.
 type Stats struct {
 	// JobsDispatchedToNewWorker is the number of workers that were started to
 	// process a job.
@@ -51,6 +52,7 @@ type Stats struct {
 	FileFilterExcludes int
 }
 
+// Dump prints all statistics.
 func (stats Stats) Dump() {
 	fmt.Printf("Processing Statistics\n")
 	fmt.Printf("=====================\n")
