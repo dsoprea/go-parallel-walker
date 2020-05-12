@@ -40,6 +40,55 @@ var (
 	arguments = new(Parameters)
 )
 
+var (
+	rootPath    string
+	rootPathLen int
+)
+
+func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath string, info os.FileInfo, collectedIn []map[string]interface{}) (collectedOut []map[string]interface{}, err error) {
+	if arguments.DoJustPrintDirectories == true && info.IsDir() == false ||
+		arguments.DoJustPrintFiles == true && info.IsDir() == true {
+		return nil, nil
+	}
+
+	fqName := path.Join(parentNodePath, info.Name())
+
+	if fqName == rootPath {
+		return nil, nil
+	}
+
+	rootPathLen = len(rootPath) + 1
+	relName := fqName[rootPathLen:]
+
+	if arguments.DoPrintAsJson == true {
+		flat := map[string]interface{}{
+			"path":         relName,
+			"is_directory": info.IsDir(),
+		}
+
+		collectedOut = append(collectedIn, flat)
+		return nil, nil
+	}
+
+	outputLocker.Lock()
+	defer outputLocker.Unlock()
+
+	if arguments.DoPrintTypes == true {
+		var typeInitial string
+		if info.IsDir() == true {
+			typeInitial = "d"
+		} else {
+			typeInitial = "f"
+		}
+
+		fmt.Printf("%s ", typeInitial)
+	}
+
+	fmt.Printf("%s\n", relName)
+
+	return nil, nil
+}
+
 func main() {
 	defer func() {
 		if state := recover(); state != nil {
@@ -66,55 +115,18 @@ func main() {
 		log.LoadConfiguration(scp)
 	}
 
-	rootPath := strings.TrimRight(arguments.RootPath, "/")
-	rootPathLen := len(rootPath) + 1
+	rootPath = strings.TrimRight(arguments.RootPath, "/")
 
-	m := sync.Mutex{}
 	collected := make([]map[string]interface{}, 0)
-	walkFunc := func(parentNodePath string, info os.FileInfo) (err error) {
-		if arguments.DoJustPrintDirectories == true && info.IsDir() == false ||
-			arguments.DoJustPrintFiles == true && info.IsDir() == true {
-			return nil
-		}
-
-		fqName := path.Join(parentNodePath, info.Name())
-
-		if fqName == rootPath {
-			return nil
-		}
-
-		relName := fqName[rootPathLen:]
-
-		if arguments.DoPrintAsJson == true {
-			flat := map[string]interface{}{
-				"path":         relName,
-				"is_directory": info.IsDir(),
-			}
-
-			collected = append(collected, flat)
-			return nil
-		}
-
-		m.Lock()
-
-		if arguments.DoPrintTypes == true {
-			var typeInitial string
-			if info.IsDir() == true {
-				typeInitial = "d"
-			} else {
-				typeInitial = "f"
-			}
-
-			fmt.Printf("%s ", typeInitial)
-		}
-
-		fmt.Printf("%s\n", relName)
-		m.Unlock()
+	outputLocker := sync.Mutex{}
+	visitorFunctionWrapper := func(parentNodePath string, info os.FileInfo) (err error) {
+		collected, err = visitorFunction(&outputLocker, rootPath, parentNodePath, info, collected)
+		log.PanicIf(err)
 
 		return nil
 	}
 
-	walk := pathwalk.NewWalk(rootPath, walkFunc)
+	walk := pathwalk.NewWalk(rootPath, visitorFunctionWrapper)
 
 	if arguments.ConcurrencyLevel != 0 {
 		walk.SetConcurrency(arguments.ConcurrencyLevel)
