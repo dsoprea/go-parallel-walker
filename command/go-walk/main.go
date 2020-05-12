@@ -26,10 +26,10 @@ type parameters struct {
 	JobQueueLength   int `short:"q" long:"queue-length" description:"Non-default job-queue length"`
 	BatchSize        int `short:"b" long:"batch-size" description:"Directory-processing batch-size"`
 
-	IncludeFilenames  []string `short:"i" long:"include-filename" description:"Zero or more filename-patterns to include"`
-	ExcludeFilenames  []string `short:"e" long:"exclude-filename" description:"Zero or more filename-patterns to exclude"`
 	IncludePaths      []string `short:"I" long:"include-path" description:"Zero or more path-patterns to include. Use '**' for relative or recursive matching."`
 	ExcludePaths      []string `short:"E" long:"exclude-path" description:"Zero or more path-patterns to exclude. Use '**' for relative or recursive matching."`
+	IncludeFilenames  []string `short:"i" long:"include-filename" description:"Zero or more filename-patterns to include"`
+	ExcludeFilenames  []string `short:"e" long:"exclude-filename" description:"Zero or more filename-patterns to exclude"`
 	IsCaseInsensitive bool     `short:"c" long:"case-insensitive" description:"Use case-insensitive matching"`
 
 	DoJustPrintFiles       bool `short:"f" long:"just-files" description:"Just print files"`

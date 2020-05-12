@@ -583,25 +583,26 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 
 	fqPath := path.Join(parentNodePath, info.Name())
 	rootPathPrefixLen := len(walk.rootPath) + 1
-	isIncluded := true
+	relPath := ""
 	if len(fqPath) > rootPathPrefixLen {
-		relPath := fqPath[rootPathPrefixLen:]
+		relPath = fqPath[rootPathPrefixLen:]
+	}
 
-		// We process every directory due to recursive filter support (the path
-		// filters we are given apply to the complete parent expression), meaning
-		// that we need to descend all of the way down through the tree in order to
-		// know what is really included by the filters. However, we won't process
-		// any files unless their parent directory mtch the filter (or there was no
-		// filter).
+	// We process every directory due to recursive filter support (the path
+	// filters we are given apply to the complete parent expression), meaning
+	// that we need to descend all of the way down through the tree in order to
+	// know what is really included by the filters. However, we won't process
+	// any files unless their parent directory mtch the filter (or there was no
+	// filter).
 
-		if walk.filter.IsPathIncluded(relPath) != true {
-			walkLogger.Debugf(nil, "Directory excluded: [%s]", relPath)
+	isIncluded := true
+	if walk.filter.IsPathIncluded(relPath) != true {
+		walkLogger.Debugf(nil, "Directory excluded: [%s]", relPath)
 
-			walk.statsPathFilterExcludeTickUp()
-			isIncluded = false
-		} else {
-			walk.statsPathFilterIncludeTickUp()
-		}
+		walk.statsPathFilterExcludeTickUp()
+		isIncluded = false
+	} else {
+		walk.statsPathFilterIncludeTickUp()
 	}
 
 	if isIncluded {
