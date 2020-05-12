@@ -10,7 +10,6 @@ install:
   - go get -t ./...
   - go get github.com/mattn/goveralls
 script:
-  - go test -v ./...
   - goveralls -v -service=travis-ci -package github.com/dsoprea/go-parallel-walker
 
 # TODO(dustin): Include coverage for the command
