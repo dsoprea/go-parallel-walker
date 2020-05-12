@@ -15,6 +15,8 @@ import (
 	"github.com/dsoprea/go-logging"
 	"github.com/dsoprea/go-utility/filesystem"
 	"github.com/gobwas/glob"
+
+	"github.com/dsoprea/go-parallel-walker/internal/testing"
 )
 
 func TestWalk_nodeWorker__openAndClose(t *testing.T) {
@@ -326,7 +328,7 @@ func TestWalk_handleJobDirectoryNode(t *testing.T) {
 	// Stage a directory to walk.
 
 	fileCount := defaultDirectoryEntryBatchSize * 3
-	tempPath, tempFilenames := FillFlatTempPath(fileCount, []string{"testdir"})
+	tempPath, tempFilenames := pwtesting.FillFlatTempPath(fileCount, []string{"testdir"})
 
 	defer func() {
 		os.RemoveAll(tempPath)
@@ -385,7 +387,7 @@ func TestWalk_handleJobDirectoryContentsBatch(t *testing.T) {
 	// Stage a directory to walk.
 
 	fileCount := 5
-	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
+	tempPath, tempFilenames := pwtesting.FillFlatTempPath(fileCount, nil)
 
 	defer func() {
 		os.RemoveAll(tempPath)
@@ -440,7 +442,7 @@ func TestWalk_Run__simple(t *testing.T) {
 	// Stage test directory.
 
 	fileCount := 200
-	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
+	tempPath, tempFilenames := pwtesting.FillFlatTempPath(fileCount, nil)
 
 	tempFilenames = append(tempFilenames, path.Base(tempPath))
 	tempFilenames.Sort()
@@ -567,7 +569,7 @@ func TestWalk_Run__reuse(t *testing.T) {
 	// Stage test directory.
 
 	fileCount := 200
-	tempPath, _ := FillFlatTempPath(fileCount, nil)
+	tempPath, _ := pwtesting.FillFlatTempPath(fileCount, nil)
 
 	defer func() {
 		os.RemoveAll(tempPath)
@@ -609,7 +611,7 @@ func TestWalk_Run__heirarchical(t *testing.T) {
 	// Stage test directory.
 
 	fileCount := 500
-	tempPath, tempFiles := FillHeirarchicalTempPath(fileCount, nil)
+	tempPath, tempFiles := pwtesting.FillHeirarchicalTempPath(fileCount, nil)
 
 	// Build a big map of all of the directories that we expect to see.
 
@@ -692,7 +694,7 @@ func ExampleWalk_Run() {
 	// Stage test directory.
 
 	fileCount := 20
-	tempPath, tempFilenames := FillFlatTempPath(fileCount, nil)
+	tempPath, tempFilenames := pwtesting.FillFlatTempPath(fileCount, nil)
 
 	tempFilenames = append(tempFilenames, path.Base(tempPath))
 	tempFilenames.Sort()

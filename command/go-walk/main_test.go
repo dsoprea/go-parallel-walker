@@ -13,7 +13,7 @@ import (
 	"github.com/dsoprea/go-logging"
 	"github.com/dsoprea/go-utility/testing"
 
-	"github.com/dsoprea/go-parallel-walker"
+	"github.com/dsoprea/go-parallel-walker/internal/testing"
 )
 
 func TestMain(t *testing.T) {
@@ -40,7 +40,7 @@ func TestMain(t *testing.T) {
 	}()
 
 	fileCount := 200
-	tempPath, tempFilenames := pathwalk.FillFlatTempPath(fileCount, nil)
+	tempPath, tempFilenames := pwtesting.FillFlatTempPath(fileCount, nil)
 
 	tempFilenames.Sort()
 
