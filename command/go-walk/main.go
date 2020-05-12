@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 
 	"encoding/json"
 
@@ -67,8 +68,11 @@ func visitorFunction(outputLocker *sync.Mutex, rootPath string, parentNodePath s
 
 	if arguments.DoPrintAsJson == true {
 		flat := map[string]interface{}{
-			"path":         relName,
-			"is_directory": info.IsDir(),
+			"path":          relName,
+			"is_directory":  info.IsDir(),
+			"size":          info.Size(),
+			"modified_time": info.ModTime().Format(time.RFC3339),
+			"mode":          info.Mode(),
 		}
 
 		collectedUpdated := append(*collected, flat)
