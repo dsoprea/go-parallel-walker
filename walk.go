@@ -22,6 +22,13 @@ const (
 	// as directories are chunked into jobs as well as the workers that call
 	// the user callback for individual folders and files (one goroutine calls
 	// one callback). Otherwise, you will experience deadlocks.
+	//
+	// In our testing, sometimes a lower number than 200 had higher performance,
+	// but a) frequently hung on the unit-tests that simulate real-world
+	// directories (large size with varying depth), which is not a good sign,
+	// and b) it's hard to determine a proper default value because it's gonna
+	// be tied to the queue-size and batch-size and directory size, and the
+	// latter will typically stagger greatly for the average case.
 	defaultConcurrency = 200
 
 	// defaultBufferSize is the default size of the job channel.
