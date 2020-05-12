@@ -272,15 +272,17 @@ func (walk *Walk) pushJob(job Job) (err error) {
 // idleWorkerTickUp states that one worker has become idle.
 func (walk *Walk) idleWorkerTickUp() {
 	walk.stateLocker.Lock()
+	defer walk.stateLocker.Unlock()
+
 	walk.idleWorkerCount++
-	walk.stateLocker.Unlock()
 }
 
 // idleWorkerTickDown states that one worker is no longer idle.
 func (walk *Walk) idleWorkerTickDown() {
 	walk.stateLocker.Lock()
+	defer walk.stateLocker.Unlock()
+
 	walk.idleWorkerCount--
-	walk.stateLocker.Unlock()
 }
 
 // nodeWorker represents one worker goroutine. It will process jobs, it will
@@ -476,8 +478,9 @@ func (walk *Walk) statsPathFilterIncludeTickUp() {
 	}
 
 	walk.statsLocker.Lock()
+	defer walk.statsLocker.Unlock()
+
 	walk.stats.PathFilterIncludes++
-	walk.statsLocker.Unlock()
 }
 
 func (walk *Walk) statsPathFilterExcludeTickUp() {
@@ -486,8 +489,9 @@ func (walk *Walk) statsPathFilterExcludeTickUp() {
 	}
 
 	walk.statsLocker.Lock()
+	defer walk.statsLocker.Unlock()
+
 	walk.stats.PathFilterExcludes++
-	walk.statsLocker.Unlock()
 }
 
 func (walk *Walk) statsFileFilterIncludeTickUp() {
@@ -496,8 +500,9 @@ func (walk *Walk) statsFileFilterIncludeTickUp() {
 	}
 
 	walk.statsLocker.Lock()
+	defer walk.statsLocker.Unlock()
+
 	walk.stats.FileFilterIncludes++
-	walk.statsLocker.Unlock()
 }
 
 func (walk *Walk) statsFileFilterExcludeTickUp() {
@@ -506,8 +511,9 @@ func (walk *Walk) statsFileFilterExcludeTickUp() {
 	}
 
 	walk.statsLocker.Lock()
+	defer walk.statsLocker.Unlock()
+
 	walk.stats.FileFilterExcludes++
-	walk.statsLocker.Unlock()
 }
 
 // handleJobDirectoryNode handles one directory note. It will read and parcel
