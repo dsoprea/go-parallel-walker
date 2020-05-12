@@ -1,6 +1,7 @@
 package pathwalk
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"reflect"
@@ -880,5 +881,53 @@ func TestWalk_SetFilter__nonempty(t *testing.T) {
 
 	if reflect.DeepEqual(walk.filter, expectedFilter) != true {
 		t.Fatalf("Filter not correct: %v", walk.filter)
+	}
+}
+
+func TestWalk_statsPathFilterIncludeTickUp(t *testing.T) {
+	w := Walk{
+		doLogFilterStats: true,
+	}
+
+	w.statsPathFilterIncludeTickUp()
+
+	if w.stats.PathFilterIncludes != 1 {
+		t.Fatalf("PathFilterIncludes not incremented")
+	}
+}
+
+func TestWalk_statsPathFilterExcludeTickUp(t *testing.T) {
+	w := Walk{
+		doLogFilterStats: true,
+	}
+
+	w.statsPathFilterExcludeTickUp()
+
+	if w.stats.PathFilterExcludes != 1 {
+		t.Fatalf("PathFilterExcludes not incremented")
+	}
+}
+
+func TestWalk_statsFileFilterIncludeTickUp(t *testing.T) {
+	w := Walk{
+		doLogFilterStats: true,
+	}
+
+	w.statsFileFilterIncludeTickUp()
+
+	if w.stats.FileFilterIncludes != 1 {
+		t.Fatalf("FileFilterIncludes not incremented")
+	}
+}
+
+func TestWalk_statsFileFilterExcludeTickUp(t *testing.T) {
+	w := Walk{
+		doLogFilterStats: true,
+	}
+
+	w.statsFileFilterExcludeTickUp()
+
+	if w.stats.FileFilterExcludes != 1 {
+		t.Fatalf("FileFilterExcludes not incremented")
 	}
 }
