@@ -196,6 +196,12 @@ func main() {
 	} else if arguments.DoPrintStats == true {
 		fmt.Printf("\n")
 
+		originalStdout := os.Stdout
+		defer func() {
+			os.Stdout = originalStdout
+		}()
+
+		os.Stdout = os.Stderr
 		walk.Stats().Dump()
 
 		fmt.Printf("\n")
