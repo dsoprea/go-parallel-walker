@@ -325,7 +325,7 @@ func TestWalk_nodeWorker__pushJob__closeWhenIdle(t *testing.T) {
 func TestWalk_handleJobDirectoryNode(t *testing.T) {
 	// Stage a directory to walk.
 
-	fileCount := directoryEntryBatchSize * 3
+	fileCount := defaultDirectoryEntryBatchSize * 3
 	tempPath, tempFilenames := FillFlatTempPath(fileCount, []string{"testdir"})
 
 	defer func() {
@@ -732,6 +732,15 @@ func TestWalk_SetBufferSize(t *testing.T) {
 
 	if walk.bufferSize != 99 {
 		t.Fatalf("'bufferSize' field not correct: (%d)", walk.bufferSize)
+	}
+}
+
+func TestWalk_SetBatchSize(t *testing.T) {
+	walk := new(Walk)
+	walk.SetBatchSize(99)
+
+	if walk.batchSize != 99 {
+		t.Fatalf("'batchSize' field not correct: (%d)", walk.batchSize)
 	}
 }
 

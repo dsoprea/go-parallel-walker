@@ -17,15 +17,19 @@ var (
 )
 
 const (
-	// defaultConcurrency is the number of workers allowed to run in parallel.
-	// This is an untested number, but needs to accommodate the intermediate
-	// batching that occurs as directories are chunked into jobs as well as the
-	// workers that call the user callback for individual folders and files (one
-	// goroutine calls one callback).
+	// defaultConcurrency is the default number of workers allowed to run in
+	// parallel. This needs to accommodate the intermediate batching that occurs
+	// as directories are chunked into jobs as well as the workers that call
+	// the user callback for individual folders and files (one goroutine calls
+	// one callback). Otherwise, you will experience deadlocks.
 	defaultConcurrency = 200
 
 	// defaultBufferSize is the default size of the job channel.
 	defaultBufferSize = 1000
+
+	// defaultDirectoryEntryBatchSize is the default parcel size that we chunk
+	// directory entries into before individually dispatching them for handling.
+	defaultDirectoryEntryBatchSize = 100
 
 	// maxWorkerIdleDuration is how long a work waits while idle for new jobs
 	// before it shuts down.
@@ -35,11 +39,8 @@ const (
 	// and how long it has been.
 	workerIdleCheckInterval = time.Second * 2
 
-	// directoryEntryBatchSize is the parcel size that we chunk directory
-	// entries into before individually dispatching them for handling.
-	directoryEntryBatchSize = 100
-
-	// frontendIdleCheckInterval is how often the frontend checks for the find to be done.
+	// frontendIdleCheckInterval is how often the frontend checks for the find
+	// to be done.
 	frontendIdleCheckInterval = time.Millisecond * 500
 )
 
@@ -54,9 +55,11 @@ type WalkFunc func(parentPath string, info os.FileInfo) (err error)
 
 // Walk knows how to traverse a tree in parallel.
 type Walk struct {
-	rootPath    string
+	rootPath string
+
 	concurrency int
 	bufferSize  int
+	batchSize   int
 
 	jobsC   chan Job
 	errorsC chan error
@@ -87,10 +90,13 @@ type Walk struct {
 // NewWalk returns a new Walk struct.
 func NewWalk(rootPath string, walkFunc WalkFunc) (walk *Walk) {
 	walk = &Walk{
-		rootPath:    rootPath,
+		rootPath: rootPath,
+
 		concurrency: defaultConcurrency,
 		bufferSize:  defaultBufferSize,
-		walkFunc:    walkFunc,
+		batchSize:   defaultDirectoryEntryBatchSize,
+
+		walkFunc: walkFunc,
 	}
 
 	// Initialize empty filter state.
@@ -143,6 +149,12 @@ func (walk *Walk) SetConcurrency(concurrency int) {
 // SetBufferSize sets an alternative size for the job channel.
 func (walk *Walk) SetBufferSize(bufferSize int) {
 	walk.bufferSize = bufferSize
+}
+
+// SetBatchSize sets an alternative size for the parcels of directory entries
+// dispatched into jobs.
+func (walk *Walk) SetBatchSize(batchSize int) {
+	walk.batchSize = batchSize
 }
 
 // InitSync sets-up the synchronization state. This is isolated as a separate
@@ -591,7 +603,7 @@ func (walk *Walk) handleJobDirectoryNode(jdn jobDirectoryNode) (err error) {
 
 	batchNumber := 0
 	for {
-		names, err := f.Readdirnames(directoryEntryBatchSize)
+		names, err := f.Readdirnames(walk.batchSize)
 		if err != nil {
 			if err == io.EOF {
 				break

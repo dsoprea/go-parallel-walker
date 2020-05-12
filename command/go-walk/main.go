@@ -18,11 +18,12 @@ import (
 type parameters struct {
 	RootPath string `short:"p" long:"root-path" required:"true" description:"Path to walk. This path will be included in the results."`
 
-	ConcurrencyLevel int `short:"j" long:"concurrency" description:"Non-default maximum number of workers."`
-	JobQueueLength   int `short:"q" long:"queue-length" description:"Non-default job-queue length."`
+	ConcurrencyLevel int `short:"j" long:"concurrency" description:"Non-default maximum number of workers"`
+	JobQueueLength   int `short:"q" long:"queue-length" description:"Non-default job-queue length"`
+	BatchSize        int `short:"b" long:"batch-size" description:"Directory-processing batch-size"`
 
-	IncludeFilenames  []string `short:"i" long:"include-filename" description:"Zero or more filename-patterns to include."`
-	ExcludeFilenames  []string `short:"e" long:"exclude-filename" description:"Zero or more filename-patterns to exclude."`
+	IncludeFilenames  []string `short:"i" long:"include-filename" description:"Zero or more filename-patterns to include"`
+	ExcludeFilenames  []string `short:"e" long:"exclude-filename" description:"Zero or more filename-patterns to exclude"`
 	IncludePaths      []string `short:"I" long:"include-path" description:"Zero or more path-patterns to include. Use '**' for relative or recursive matching."`
 	ExcludePaths      []string `short:"E" long:"exclude-path" description:"Zero or more path-patterns to exclude. Use '**' for relative or recursive matching."`
 	IsCaseInsensitive bool     `short:"c" long:"case-insensitive" description:"Use case-insensitive matching"`
@@ -33,7 +34,7 @@ type parameters struct {
 	DoPrintTypes           bool `short:"t" long:"type" description:"Prefix lines with entry types. Ignored if printing JSON."`
 
 	DoPrintStats     bool `short:"s" long:"stats" description:"Print statistics. Ignored if printing JSON."`
-	DoPrintVerbosity bool `short:"v" long:"verbose" description:"Print logging verbosity."`
+	DoPrintVerbosity bool `short:"v" long:"verbose" description:"Print logging verbosity"`
 }
 
 var (
@@ -136,6 +137,10 @@ func main() {
 
 	if arguments.JobQueueLength != 0 {
 		walk.SetBufferSize(arguments.JobQueueLength)
+	}
+
+	if arguments.BatchSize != 0 {
+		walk.SetBatchSize(arguments.BatchSize)
 	}
 
 	filter := pathwalk.Filter{
