@@ -1,3 +1,8 @@
+[![Build Status](https://travis-ci.org/dsoprea/go-parallel-walker.svg?branch=master)](https://travis-ci.org/dsoprea/go-parallel-walker)
+[![Coverage Status](https://coveralls.io/repos/github/dsoprea/go-parallel-walker/badge.svg?branch=master)](https://coveralls.io/github/dsoprea/go-parallel-walker?branch=master)
+[![GoDoc](https://godoc.org/github.com/dsoprea/go-parallel-walker?status.svg)](https://godoc.org/github.com/dsoprea/go-parallel-walker)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dsoprea/go-parallel-walker)](https://goreportcard.com/report/github.com/dsoprea/go-parallel-walker)
+
 # Overview
 
 This package walks and processes a filesystem tree in parallel. A CLI frontend
