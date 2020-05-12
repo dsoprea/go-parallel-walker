@@ -34,7 +34,7 @@ type Walk struct {
 	batchSize       int
 	timeoutDuration time.Duration
 
-	jobsC   chan Job
+	jobsC   chan job
 	errorsC chan error
 	wg      *sync.WaitGroup
 
@@ -141,7 +141,7 @@ func (walk *Walk) SetGlobalTimeoutDuration(timeoutDuration time.Duration) {
 // step to support testing.
 func (walk *Walk) InitSync() {
 	// Our jobs channel.
-	walk.jobsC = make(chan Job, walk.concurrency)
+	walk.jobsC = make(chan job, walk.concurrency)
 
 	// Our error channel
 	walk.errorsC = make(chan error, 0)
@@ -241,7 +241,7 @@ func (walk *Walk) Run() (err error) {
 // or there are but none are idle and we're under-capacity.
 //
 // This function (and, thus, the path walk) will throttle on channel capacity.
-func (walk *Walk) pushJob(job Job) (err error) {
+func (walk *Walk) pushJob(job job) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))
@@ -379,7 +379,7 @@ func (walk *Walk) nodeWorker() {
 }
 
 // handleJob handles one queued job.
-func (walk *Walk) handleJob(job Job) (err error) {
+func (walk *Walk) handleJob(job job) (err error) {
 	defer func() {
 		if state := recover(); state != nil {
 			err = log.Wrap(state.(error))

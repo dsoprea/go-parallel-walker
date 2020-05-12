@@ -23,7 +23,7 @@ func TestWalk_nodeWorker__openAndClose(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 
-	jobsC := make(chan Job, 1)
+	jobsC := make(chan job, 1)
 
 	walk := &Walk{
 		workerCount: 1,
@@ -69,7 +69,7 @@ func TestWalk_nodeWorker__closeWhenIdle(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 
-	jobsC := make(chan Job, 1)
+	jobsC := make(chan job, 1)
 
 	walk := &Walk{
 		workerCount: 1,
@@ -116,7 +116,7 @@ func TestWalk_nodeWorker__processOneJob(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 
-	jobsC := make(chan Job, 1)
+	jobsC := make(chan job, 1)
 
 	var handledFilename string
 
@@ -185,7 +185,7 @@ func TestWalk_nodeWorker__processMultipleJob(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 
-	jobsC := make(chan Job, 1)
+	jobsC := make(chan job, 1)
 
 	handledFilenames := make([]string, 0)
 

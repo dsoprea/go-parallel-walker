@@ -5,8 +5,8 @@ import (
 	"os"
 )
 
-// Job describes any job being queued in the channel.
-type Job interface {
+// job describes any job being queued in the channel.
+type job interface {
 	ParentNodePath() string
 	String() string
 }
