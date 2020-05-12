@@ -1,7 +1,6 @@
 package pathwalk
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"reflect"
@@ -493,7 +492,7 @@ func TestWalk_Run__terminateBecauseOfJobError(t *testing.T) {
 	}
 }
 
-func TestWalk_Run__simple__skip(t *testing.T) {
+func TestWalk_Run__skip(t *testing.T) {
 	// Stage test directory.
 
 	tempPath, err := ioutil.TempDir("", "")
@@ -558,7 +557,7 @@ func TestWalk_Run__simple__skip(t *testing.T) {
 	}
 }
 
-func TestWalk_Run__simpleReuse(t *testing.T) {
+func TestWalk_Run__reuse(t *testing.T) {
 	// Test that we can run several walks on the same `Walk` struct.
 
 	// Stage test directory.
@@ -657,8 +656,6 @@ func TestWalk_Run__heirarchical(t *testing.T) {
 
 		filename := info.Name()
 		relFilepath := path.Join(relParentPath, filename)
-
-		// fmt.Printf("File> %s\n", relFilepath)
 
 		j := tempFiles.Search(relFilepath)
 		if j >= len(tempFiles) || tempFiles[j] != relFilepath {
