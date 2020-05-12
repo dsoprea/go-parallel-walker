@@ -443,7 +443,10 @@ func (walk *Walk) handleJobDirectoryContentsBatch(jdcb jobDirectoryContentsBatch
 		path := path.Join(parentNodePath, childFilename)
 
 		info, err := os.Stat(path)
-		log.PanicIf(err)
+		if err != nil {
+			walkLogger.Warningf(nil, "can not stat [%s]; it will be skipped: [%s]", path, err.Error())
+			return nil
+		}
 
 		if info.IsDir() == true {
 			jdn := newJobDirectoryNode(parentNodePath, info)
