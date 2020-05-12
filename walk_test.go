@@ -694,10 +694,7 @@ func ExampleWalk_Run() {
 	// Stage test directory.
 
 	fileCount := 20
-	tempPath, tempFilenames := pwtesting.FillFlatTempPath(fileCount, nil)
-
-	tempFilenames = append(tempFilenames, path.Base(tempPath))
-	tempFilenames.Sort()
+	tempPath, _ := pwtesting.FillFlatTempPath(fileCount, nil)
 
 	// Walk
 
